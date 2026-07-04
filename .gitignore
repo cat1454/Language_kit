@@ -1,0 +1,33 @@
+node_modules/
+.pnpm-store/
+.next/
+.turbo/
+out/
+coverage/
+playwright-report/
+test-results/
+
+# Local agent checkouts and harness state
+ECC/
+ponytail/
+.agents/
+.codex/
+.claude/
+
+# Local environment and process state
+.env
+.env.*
+!.env.example
+*.log
+*.pid
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Desktop.ini
+Thumbs.db

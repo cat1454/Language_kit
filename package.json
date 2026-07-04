@@ -1,0 +1,47 @@
+{
+  "name": "language-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "check": "pnpm check:file-size && pnpm typecheck && pnpm test",
+    "check:file-size": "node scripts/check-file-size.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "db:up": "docker compose up -d db",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:shell": "docker compose exec db psql -U language_kit -d language_kit_dev"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "pg": "8.22.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "24.10.4",
+    "@types/pg": "8.20.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitest/coverage-v8": "4.1.9",
+    "dotenv": "17.4.2",
+    "drizzle-kit": "0.31.10",
+    "tailwindcss": "4.3.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  }
+}
