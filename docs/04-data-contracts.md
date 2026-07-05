@@ -6,7 +6,7 @@ All AI backends must return the same data shapes.
 
 Rules:
 
-- return valid JSON only
+- return raw valid JSON only
 - no markdown fences
 - no comments
 - use `lesson_pack.v1` for lesson generation
@@ -17,6 +17,8 @@ Rules:
 - do not reveal the full transcript in the learner UI before listening checks
 
 The app can store the full transcript internally. The UI must control when it becomes visible.
+
+Prompt/schema hardening adds compact contract guidance to the manual relay lesson and feedback prompts. This guidance is not a new schema version. The canonical contracts remain the Zod schemas in `src/lib/contracts.ts`, and AI output remains untrusted until it validates at the app boundary.
 
 ## Lesson Pack Contract
 
@@ -209,6 +211,8 @@ Schema version: `lesson_pack.v1`.
 ```
 
 ## Validation Requirements
+
+Manual relay prompts should reduce malformed output by naming the required keys and retry-drill/error-log fields, but validation must not depend on model obedience. Bad JSON, wrong shapes, and unsupported values are still rejected before persistence.
 
 Minimum lesson-pack validation:
 

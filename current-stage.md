@@ -1,21 +1,21 @@
 # Current Stage - Language Kit
 
 Audit/update date: 2026-07-05
-Branch: `feat/listening-v1-foundation`
+Branch: `fix/prompt-schema-hardening`
 
 ## Stage ID
 
-`M5_LISTENING_V1_FOUNDATION`
+`M6_PROMPT_SCHEMA_HARDENING`
 
 ## Current Milestone Status
 
-Prompt 5 - Listening v1 foundation: complete.
+Prompt 6 - Prompt/schema hardening: complete.
 
-M4 data persistence hardening was checkpoint committed before this work started.
-Preflight was clean on `feat/listening-v1-foundation`, with latest commit
-`b624cb7 Complete M4 data persistence hardening`.
+Prompt 5 was checkpoint committed before this work started. Preflight was clean
+on `fix/prompt-schema-hardening`, with latest commit
+`4719c4d Complete Listening v1 foundation`.
 
-- Milestone 1, Prompt Builder And Schema Validation: done at a usable level.
+- Milestone 1, Prompt Builder And Schema Validation: hardened for manual relay prompts.
 - Milestone 2, Lesson Display And Storage: done at a usable level.
 - Milestone 3, Listening Checks And Logs: done at a usable level.
 - Milestone 4, Roleplay, Writing, Feedback Paste, Export Cleanup, And Data Safety: complete.
@@ -24,91 +24,96 @@ Preflight was clean on `feat/listening-v1-foundation`, with latest commit
 
 ## What Is Done
 
-- Listening input already had `audio_path`, so no duplicate DB column or migration was added. Evidence: `src/db/schema.ts:112`, `drizzle/0000_last_mongoose.sql:66`.
-- Lesson detail now exposes a safe `listeningInput.audioPath` field while keeping `listeningInputId` for backward compatibility. Evidence: `app/api/lesson-packs/[id]/route.ts:34`, `app/api/lesson-packs/[id]/route.ts:35`, `app/api/lesson-packs/[id]/route.ts:37`.
-- Lesson detail still explicitly maps learner payload fields and does not expose `user_id`. Evidence: `tests/integration/lesson-detail-safety-routes.test.ts:15`, `tests/integration/lesson-detail-safety-routes.test.ts:64`, `tests/integration/lesson-detail-safety-routes.test.ts:65`.
-- The client detail type includes optional listening-input audio metadata. Evidence: `src/lib/lesson-data.ts:66`.
-- The lesson detail client passes the audio path into the listening panel. Evidence: `src/components/lesson-detail-client.tsx:254`.
-- The listening panel renders a real HTML audio element when `audioPath` exists. Evidence: `src/components/lesson-listening-panel.tsx:143`, `tests/e2e/listening-v1.spec.ts:5`.
-- The real audio path uses fixed playback rate `1.0`; rate changes are reset to `1`. Evidence: `src/components/lesson-listening-panel.tsx:145`, `src/components/lesson-listening-panel.tsx:148`, `tests/e2e/listening-v1.spec.ts:23`.
-- When audio is missing, the existing demo listening timer remains available and shows a non-blocking message. Evidence: `src/components/lesson-listening-panel.tsx:162`, `src/components/lesson-listening-panel.tsx:163`, `tests/e2e/listening-v1.spec.ts:32`.
-- Transcript reveal behavior remains gated behind a saved listening check. Evidence: `src/components/lesson-listening-panel.tsx:197`, `tests/e2e/listening-v1.spec.ts:22`, `tests/e2e/listening-v1.spec.ts:28`.
-- Listening attempt persistence remains unchanged; the public payload still omits `listeningInputId`. Evidence: `tests/e2e/listening-v1.spec.ts:28`, `tests/integration/learning-routes.test.ts:149`.
-- Manual/static audio asset guidance was added. Evidence: `docs/listening-v1.md:1`, `docs/listening-v1.md:8`, `docs/listening-v1.md:18`.
-- Static audio placeholder directory exists under `public/audio/lessons/`.
+- Lesson generation prompts now ask for raw JSON only, no markdown fences, no comments, and no prose before or after JSON. Evidence: `src/lib/prompts.ts:20`, `tests/unit/prompts.test.ts:25`.
+- Lesson prompts keep `lesson_pack.v1` as the only lesson schema and add compact guidance for exact top-level keys, no extra top-level keys, listening input, comprehension checks, chunks, roleplay, writing, retry drills, and quality checks. Evidence: `src/lib/prompts.ts:21`, `src/lib/prompts.ts:30`, `src/lib/prompt-schema-guides.ts:1`, `src/lib/prompt-schema-guides.ts:2`, `src/lib/prompt-schema-guides.ts:5`, `src/lib/prompt-schema-guides.ts:6`, `src/lib/prompt-schema-guides.ts:8`, `src/lib/prompt-schema-guides.ts:14`.
+- Lesson prompts explicitly preserve listening-first pedagogy, 60-90 second listening input, 5-8 chunks, and transcript gating before listening completion. Evidence: `src/lib/prompts.ts:29`, `src/lib/prompts.ts:31`, `src/lib/prompt-schema-guides.ts:6`, `src/lib/prompt-schema-guides.ts:8`, `src/lib/prompt-schema-guides.ts:15`.
+- Feedback prompts now ask for raw JSON only and include compact `feedback.v1` guidance for scores, error log fields, positive notes, retry priority, and retry drill structure. Evidence: `src/lib/prompts.ts:62`, `src/lib/prompts.ts:63`, `src/lib/prompt-schema-guides.ts:19`, `src/lib/prompt-schema-guides.ts:20`, `src/lib/prompt-schema-guides.ts:21`, `src/lib/prompt-schema-guides.ts:22`, `src/lib/prompt-schema-guides.ts:28`.
+- Prompt tests cover the hardened lesson and feedback prompt wording and ensure generated prompts do not contain markdown fences. Evidence: `tests/unit/prompts.test.ts:25`, `tests/unit/prompts.test.ts:26`, `tests/unit/prompts.test.ts:30`, `tests/unit/prompts.test.ts:41`, `tests/unit/prompts.test.ts:78`, `tests/unit/prompts.test.ts:79`, `tests/unit/prompts.test.ts:88`.
+- `lesson_pack.v1` Zod validation remains the canonical lesson contract. Evidence: `src/lib/contracts.ts:75`, `src/lib/contracts.ts:273`, `tests/unit/contracts.test.ts:10`.
+- Manual feedback parsing and the feedback route remain unchanged in behavior. Evidence: `src/lib/manual-feedback-json.ts:3`, `app/api/feedback/route.ts:39`, `tests/unit/manual-feedback-json.test.ts:15`, `tests/unit/manual-feedback-json.test.ts:28`, `tests/unit/manual-feedback-json.test.ts:35`.
+- Listening v1 remains intact: safe audio path mapping, fixed playback rate, fallback demo listening, and transcript gating still pass. Evidence: `app/api/lesson-packs/[id]/route.ts:37`, `src/components/lesson-listening-panel.tsx:145`, `src/components/lesson-listening-panel.tsx:148`, `src/components/lesson-listening-panel.tsx:154`, `src/components/lesson-listening-panel.tsx:197`, `tests/e2e/listening-v1.spec.ts:22`, `tests/e2e/listening-v1.spec.ts:23`, `tests/e2e/listening-v1.spec.ts:28`.
+- Manual relay documentation now says prompts include compact contract guidance, while Zod validation remains the acceptance gate. Evidence: `docs/03-ai-execution-modes.md:22`, `docs/03-ai-execution-modes.md:31`, `docs/03-ai-execution-modes.md:72`, `docs/03-ai-execution-modes.md:94`, `docs/04-data-contracts.md:21`.
 
 ## What Is Missing
 
-- No audio upload UI.
-- No TTS provider integration or audio generation.
-- No STT/ASR, speaking assessment, shadowing, dictation, chunk replay, multi-voice selection, speed control, local model, paid model, auth, or fine-tuning.
-- Audio paths are currently assigned manually in `listening_inputs.audio_path`.
+- Prompt 6 did not measure real model compliance against a saved evaluation set.
+- No golden prompt-output fixtures were added beyond prompt text assertions.
+- No UI affordance was added for comparing rejected manual relay outputs.
+- No AI provider, local model, third-party automation, or model fallback was added.
 
 ## In Scope For The Next Stage
 
-Next safest implementation prompt: `Prompt 6 - Prompt/schema hardening`
+Next safest implementation prompt: `Prompt 7 - Dogfood + eval set v0`
 
-- Keep `lesson_pack.v1` and `feedback.v1` stable unless a later prompt explicitly plans a versioned migration.
-- Keep Listening v1's audio path additive and optional.
-- Preserve M4 persistence, export hygiene, and `user_id` API safety.
-
-## Prompt 8 Backlog
-
-- Multi-voice selection
-- Speed control
-- Chunk replay
-- Shadowing mode
-- Dictation mode
-- Richer audio metadata
+- Create a small dogfood/evaluation set for B1 workplace lessons and manual feedback outputs.
+- Capture real invalid-output examples without weakening parser or Zod validation.
+- Keep `lesson_pack.v1`, `feedback.v1`, Listening v1, M4 persistence, export hygiene, and `user_id` API safety intact.
 
 ## Out Of Scope
 
-- TTS provider integration
-- STT/ASR
-- Speaking assessment
-- Shadowing mode
-- Dictation mode
-- Chunk replay
-- Multi-voice selection
-- Speed control
-- Audio upload UI
-- Cloud audio storage
+- `lesson_pack.v1` schema changes
+- `feedback.v1`/manual feedback contract changes
+- Zod parser permissiveness changes
+- API payload changes
+- Database migrations
+- AI provider integration
+- Third-party AI website automation
+- TTS/STT
+- Listening v1 audio changes
+- Shadowing, dictation, chunk replay, multi-voice, or speed controls
 - Auth/login/sessions/permissions
 - Local model or paid model integration
 - Fine-tuning execution
-- `lesson_pack.v1` schema changes
-- `feedback.v1`/manual feedback contract changes
 
-## Acceptance Checklist For Prompt 5
+## Acceptance Checklist For Prompt 6
 
-- [x] M4 checkpoint commit verified before code changes.
-- [x] Worktree was clean before Prompt 5.
-- [x] Branch `feat/listening-v1-foundation` used.
-- [x] Existing `audio_path` field reused; no duplicate DB column added.
-- [x] Lesson detail exposes safe `listeningInput.audioPath`.
-- [x] `user_id` is not exposed through lesson detail.
-- [x] Real audio element renders when audio path exists.
-- [x] Playback speed is fixed at 1.0x.
-- [x] Full-file playback only; no chunk replay, dictation, shadowing, or recording controls added.
-- [x] Missing audio uses safe demo listening fallback.
-- [x] Transcript remains hidden until listening attempt completion.
-- [x] Listening check save still works.
+- [x] Prompt 5 checkpoint commit verified before Prompt 6 code changes.
+- [x] Worktree was clean before Prompt 6.
+- [x] Branch `fix/prompt-schema-hardening` used.
+- [x] Lesson prompt requests raw JSON only.
+- [x] Lesson prompt says not to include markdown fences, comments, or surrounding prose.
+- [x] Lesson prompt includes compact `lesson_pack.v1` schema guidance.
+- [x] Lesson prompt keeps listening-first order, 60-90 second listening input, 5-8 chunks, and transcript gating.
+- [x] Feedback prompt requests raw JSON only.
+- [x] Feedback prompt includes compact `feedback.v1` guidance for scores, error log fields, and retry drill.
+- [x] Prompt tests cover the hardened guidance.
 - [x] `lesson_pack.v1` remains unchanged.
-- [x] `feedback.v1`/manual feedback remains unchanged.
-- [x] M4 persistence/export/user_id safety tests still pass.
-- [x] Prompt 8 backlog captured.
+- [x] `feedback.v1`/manual feedback behavior remains unchanged.
+- [x] No Zod validation or parser permissiveness was changed.
+- [x] No API payloads or database migrations were changed.
+- [x] No AI provider, third-party automation, TTS/STT, or Listening v1 audio work was added.
+- [x] M4 persistence/export/user_id safety checks still pass through the regression gate.
+- [x] Listening v1 E2E checks still pass.
 
 ## Verification Run
 
 ```text
 git status --short
-Result: clean before Prompt 5 code changes.
+Result: clean before Prompt 6 code changes.
 
 git log -1 --oneline
-Result: b624cb7 Complete M4 data persistence hardening
+Result: 4719c4d Complete Listening v1 foundation
 
-rg -n "M4 is complete|Prompt 5 - Listening v1 foundation" current-stage.md
-Result: M4 complete and Prompt 5 next-stage evidence found before this update.
+rg -n "Prompt 5 - Listening v1 foundation|Listening v1 foundation: complete|M5_LISTENING_V1_FOUNDATION" current-stage.md
+Result: Prompt 5 completion evidence found before this update.
+
+corepack pnpm vitest run tests/unit/prompts.test.ts
+Result: passed. 1 file passed, 4 tests passed.
+
+corepack pnpm vitest run tests/unit/contracts.test.ts
+Result: passed. 1 file passed, 10 tests passed.
+
+corepack pnpm vitest run tests/unit/manual-feedback-json.test.ts
+Result: passed. 1 file passed, 5 tests passed.
+
+corepack pnpm check
+Result: passed. File-size check passed: 61 files checked, 3 legacy exceptions frozen. Vitest: 16 passed, 1 skipped; 90 tests passed, 6 skipped.
+
+corepack pnpm test:coverage
+Result: passed. Statements 96.66%, branches 87.87%, functions 98.59%, lines 97.72%.
+
+corepack pnpm test:all
+Result: passed. Ran pnpm check and pnpm test:coverage.
 
 corepack pnpm vitest run tests/integration/lesson-detail-safety-routes.test.ts
 Result: passed. 1 file passed, 2 tests passed.
@@ -116,27 +121,24 @@ Result: passed. 1 file passed, 2 tests passed.
 corepack pnpm vitest run tests/integration/learning-routes.test.ts
 Result: passed. 1 file passed, 13 tests passed.
 
-corepack pnpm playwright test tests/e2e/listening-v1.spec.ts --workers=1
-Result: passed. 2 tests passed.
-
-corepack pnpm check
-Result: passed. File-size check passed: 60 files checked, 3 legacy exceptions frozen. Vitest: 16 passed, 1 skipped; 89 tests passed, 6 skipped.
-
-corepack pnpm test:coverage
-Result: passed. Statements 96.63%, branches 87.87%, functions 98.59%, lines 97.7%.
-
-corepack pnpm test:all
-Result: passed. Ran pnpm check and pnpm test:coverage.
-
 corepack pnpm playwright test tests/e2e/mvp-flow.spec.ts --workers=1
 Result: passed. 5 tests passed.
 
 corepack pnpm playwright test tests/e2e/mvp-hardening.spec.ts --workers=1
 Result: passed. 3 tests passed.
+
+corepack pnpm playwright test tests/e2e/listening-v1.spec.ts --workers=1
+Result: passed. 2 tests passed.
+
+git diff --check
+Result: passed with CRLF line-ending warnings only.
+
+git status --short
+Result: dirty worktree with Prompt 6 files only: current-stage.md, docs/03-ai-execution-modes.md, docs/04-data-contracts.md, src/lib/prompts.ts, tests/unit/prompts.test.ts, and src/lib/prompt-schema-guides.ts.
 ```
 
 ## Last Update Notes
 
-- Prompt 5 changed only the optional audio-path lesson detail/UI/docs/test surface.
-- No database migration was needed.
-- Next prompt should be Prompt 6 - Prompt/schema hardening.
+- Prompt 6 changed prompt construction, prompt tests, and docs only.
+- No contract, parser, route payload, database, export, or Listening v1 behavior changed.
+- Next prompt should be Prompt 7 - Dogfood + eval set v0.
