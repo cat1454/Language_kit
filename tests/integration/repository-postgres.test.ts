@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/src/db/client";
-import { errorLog, modelOutputs, retryDrills, topics } from "@/src/db/schema";
+import {
+  errorLog,
+  lessonPacks,
+  listeningAttempts,
+  modelOutputs,
+  retryDrills,
+  topics
+} from "@/src/db/schema";
 import {
   completeRetryDrill,
   getDashboardSummary,
@@ -9,7 +17,9 @@ import {
   listLessonPacks,
   saveFeedback,
   saveListeningAttempt,
-  saveLessonPackSubmission
+  saveLessonPackSubmission,
+  saveRejectedFeedbackOutput,
+  saveWritingDraft
 } from "@/src/db/repository";
 import { validFeedback, validLessonPack } from "@/src/demo/lesson-pack-fixture";
 
@@ -101,6 +111,14 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
       scoreKeyPhrase: 1,
       missedDetails: []
     });
+    const initialDetail = await getLessonPackDetail(lessonPackId);
+    const writingSubmission = initialDetail?.writingSubmission;
+    if (!writingSubmission) throw new Error("Expected writing submission seed.");
+    await saveWritingDraft({
+      lessonId: lessonPackId,
+      writingSubmissionId: writingSubmission.id,
+      draft: "Sorry for the inconvenience. Would Friday at 3 work for you?"
+    });
     const feedback = await saveFeedback({
       lessonPackId,
       prompt: "Evaluate the learner attempt",
@@ -117,12 +135,56 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
 
     expect(attempt?.listeningInputId).toEqual(expect.any(Number));
     expect(detail?.listeningAttempts).toHaveLength(1);
+    expect(detail?.writingSubmission?.draft).toBe(
+      "Sorry for the inconvenience. Would Friday at 3 work for you?"
+    );
+    expect(detail?.writingSubmission?.feedbackJson).toEqual(validFeedback);
+    expect(detail?.writingSubmission?.rubricScoresJson).toEqual(validFeedback.scores);
+    expect(detail?.writingSubmission?.correctedVersion).toBeNull();
     expect(detail?.retryDrills.some((drill) => drill.completedAt)).toBe(true);
     expect(dashboard).toMatchObject({
       completedTopics: 1,
       completedRetryDrills: 1,
       repeatedErrorTypes: { naturalness: 1 }
     });
+  });
+
+  it("uses the single-user placeholder default for parent and practice rows", async () => {
+    const saved = await saveLessonPackSubmission({
+      prompt: "Generate lesson_pack.v1",
+      rawAiOutput: JSON.stringify(validLessonPack),
+      parsedJson: validLessonPack,
+      validatedJson: validLessonPack,
+      sourceMode: "manual_free_relay",
+      status: "accepted",
+      rejectionReason: null
+    });
+    const lessonPackId = saved.id as number;
+
+    const attempt = await saveListeningAttempt({
+      lessonPackId,
+      gistAnswers: ["To reschedule a meeting."],
+      detailAnswers: ["A scheduling conflict.", "Friday at 3."],
+      keyPhraseAnswers: ["Could we reschedule it?"],
+      replayCount: 1,
+      scoreGist: 1,
+      scoreDetail: 1,
+      scoreKeyPhrase: 1,
+      missedDetails: []
+    });
+
+    const db = getDb();
+    const [lessonRow] = await db
+      .select({ userId: lessonPacks.userId })
+      .from(lessonPacks)
+      .where(eq(lessonPacks.id, lessonPackId));
+    const [attemptRow] = await db
+      .select({ userId: listeningAttempts.userId })
+      .from(listeningAttempts)
+      .where(eq(listeningAttempts.id, attempt?.id ?? 0));
+
+    expect(lessonRow?.userId).toBe(1);
+    expect(attemptRow?.userId).toBe(1);
   });
 
   it("returns null for feedback targeting a missing lesson without orphan inserts", async () => {
@@ -143,6 +205,44 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
     expect(outputs).toHaveLength(0);
     expect(errors).toHaveLength(0);
     expect(drills).toHaveLength(0);
+  });
+
+  it("persists rejected feedback output without creating feedback side effects", async () => {
+    const saved = await saveLessonPackSubmission({
+      prompt: "Generate lesson_pack.v1",
+      rawAiOutput: JSON.stringify(validLessonPack),
+      parsedJson: validLessonPack,
+      validatedJson: validLessonPack,
+      sourceMode: "manual_free_relay",
+      status: "accepted",
+      rejectionReason: null
+    });
+    const db = getDb();
+    const beforeErrors = await db.select().from(errorLog);
+    const beforeDrills = await db.select().from(retryDrills);
+
+    const rejected = await saveRejectedFeedbackOutput({
+      lessonPackId: saved.id as number,
+      prompt: "Evaluate the learner attempt",
+      rawAiOutput: JSON.stringify({ scores: validFeedback.scores }),
+      parsedJson: { scores: validFeedback.scores },
+      rejectionReason: "feedback_lacks_retry_drill",
+      sourceMode: "manual_free_relay"
+    });
+
+    const outputs = await db.select().from(modelOutputs);
+    const afterErrors = await db.select().from(errorLog);
+    const afterDrills = await db.select().from(retryDrills);
+
+    expect(rejected).not.toBeNull();
+    expect(outputs.find((output) => output.id === rejected?.modelOutputId)).toMatchObject({
+      taskType: "feedback_scoring",
+      accepted: false,
+      rejectionReason: "feedback_lacks_retry_drill",
+      parsedJson: { scores: validFeedback.scores }
+    });
+    expect(afterErrors).toHaveLength(beforeErrors.length);
+    expect(afterDrills).toHaveLength(beforeDrills.length);
   });
 });
 

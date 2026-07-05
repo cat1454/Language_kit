@@ -52,10 +52,14 @@ const createdAt = timestamp("created_at", { withTimezone: true })
   .defaultNow()
   .notNull();
 
+// Single-user placeholder for future tenancy; this is not authentication.
+const singleUserPlaceholder = () => integer("user_id").default(1).notNull();
+
 export const topics = pgTable("topics", {
   id: bigint("id", { mode: "number" })
     .primaryKey()
     .generatedByDefaultAsIdentity(),
+  userId: singleUserPlaceholder(),
   topic: text("topic").notNull(),
   targetLanguage: text("target_language").notNull(),
   learnerNativeLanguage: text("learner_native_language").notNull(),
@@ -72,6 +76,7 @@ export const lessonPacks = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     topicId: bigint("topic_id", { mode: "number" }).references(() => topics.id, {
       onDelete: "cascade"
     }),
@@ -99,6 +104,7 @@ export const listeningInputs = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -121,6 +127,7 @@ export const listeningAttempts = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -149,6 +156,7 @@ export const chunks = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -169,6 +177,7 @@ export const roleplayTurns = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -188,6 +197,7 @@ export const writingSubmissions = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -211,6 +221,7 @@ export const errorLog = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -235,6 +246,7 @@ export const retryDrills = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     lessonPackId: bigint("lesson_pack_id", { mode: "number" })
       .notNull()
       .references(() => lessonPacks.id, { onDelete: "cascade" }),
@@ -261,6 +273,7 @@ export const modelOutputs = pgTable(
     id: bigint("id", { mode: "number" })
       .primaryKey()
       .generatedByDefaultAsIdentity(),
+    userId: singleUserPlaceholder(),
     taskType: taskTypeEnum("task_type").notNull(),
     sourceMode: sourceModeEnum("source_mode").notNull(),
     providerOrSite: text("provider_or_site"),

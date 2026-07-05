@@ -33,9 +33,35 @@ export async function GET(
         lesson: result.lesson,
         listeningInputId: result.listeningInput.id,
         listeningAttempts: result.listeningAttempts.map((attempt) => ({
-          ...attempt,
+          id: attempt.id,
+          lessonPackId: attempt.lessonPackId,
+          listeningInputId: attempt.listeningInputId,
+          gistAnswers: attempt.gistAnswers,
+          detailAnswers: attempt.detailAnswers,
+          keyPhraseAnswers: attempt.keyPhraseAnswers,
+          replayCount: attempt.replayCount,
+          scoreGist: attempt.scoreGist,
+          scoreDetail: attempt.scoreDetail,
+          scoreKeyPhrase: attempt.scoreKeyPhrase,
+          missedDetails: attempt.missedDetails,
           createdAt: attempt.createdAt.toISOString()
         })),
+        roleplayTurns: result.roleplayTurns.map((turn) => ({
+          id: turn.id,
+          lessonPackId: turn.lessonPackId,
+          turnIndex: turn.turnIndex,
+          aiPrompt: turn.aiPrompt,
+          learnerGoal: turn.learnerGoal,
+          learnerResponse: turn.learnerResponse
+        })),
+        writingSubmission: result.writingSubmission ? {
+          id: result.writingSubmission.id,
+          lessonPackId: result.writingSubmission.lessonPackId,
+          task: result.writingSubmission.task,
+          constraints: result.writingSubmission.constraintsJson,
+          targetChunks: result.writingSubmission.targetChunksJson,
+          draft: result.writingSubmission.draft
+        } : null,
         retryDrills: result.retryDrills.map((drill) => ({
           id: drill.id,
           lessonPackId: drill.lessonPackId,

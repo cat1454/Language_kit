@@ -4,7 +4,6 @@ import {
   chunks,
   errorLog,
   lessonPacks,
-  listeningAttempts,
   listeningInputs,
   modelOutputs,
   retryDrills,
@@ -13,7 +12,10 @@ import {
   writingSubmissions
 } from "@/src/db/schema";
 import {
+  buildFeedbackScoringExportRows,
+  buildJsonRepairExportRows,
   buildLessonGenerationExportRows,
+  buildRetryGenerationExportRows,
   type DatasetExportKind
 } from "@/src/lib/exports";
 import type {
@@ -26,8 +28,12 @@ import type {
 export {
   completeRetryDrill,
   saveFeedback,
-  saveListeningAttempt
+  saveListeningAttempt,
+  saveRejectedFeedbackOutput,
+  saveRoleplayTurnResponse,
+  saveWritingDraft
 } from "@/src/db/practice-repository";
+export { getLessonPackDetail } from "@/src/db/lesson-detail-repository";
 
 export type LessonPackSubmission = {
   prompt: string;
@@ -175,56 +181,6 @@ export async function listLessonPacks() {
     .orderBy(desc(lessonPacks.createdAt));
 }
 
-export async function getLessonPackDetail(id: number) {
-  const db = getDb();
-  const [lesson] = await db
-    .select()
-    .from(lessonPacks)
-    .where(eq(lessonPacks.id, id))
-    .limit(1);
-
-  if (!lesson?.validatedJson) {
-    return null;
-  }
-
-  const [input] = await db
-    .select()
-    .from(listeningInputs)
-    .where(eq(listeningInputs.lessonPackId, id))
-    .limit(1);
-
-  const savedAttempts = await db
-    .select()
-    .from(listeningAttempts)
-    .where(eq(listeningAttempts.lessonPackId, id))
-    .orderBy(desc(listeningAttempts.createdAt));
-
-  const savedChunks = await db
-    .select()
-    .from(chunks)
-    .where(eq(chunks.lessonPackId, id));
-
-  const savedRoleplayTurns = await db
-    .select()
-    .from(roleplayTurns)
-    .where(eq(roleplayTurns.lessonPackId, id));
-
-  const savedRetryDrills = await db
-    .select()
-    .from(retryDrills)
-    .where(eq(retryDrills.lessonPackId, id));
-
-  return {
-    lessonPack: lesson,
-    lesson: lesson.validatedJson,
-    listeningInput: input,
-    listeningAttempts: savedAttempts,
-    chunks: savedChunks,
-    roleplayTurns: savedRoleplayTurns,
-    retryDrills: savedRetryDrills
-  };
-}
-
 export async function getDashboardSummary() {
   const db = getDb();
   const acceptedLessons = await db
@@ -286,13 +242,7 @@ export async function getDatasetExportRows(kind: DatasetExportKind) {
       .where(eq(modelOutputs.taskType, "feedback_scoring"))
       .orderBy(desc(modelOutputs.createdAt));
 
-    return rows.map((row) => ({
-      prompt: row.prompt,
-      raw_response: row.rawResponse,
-      feedback_json: row.parsedJson,
-      source_mode: row.sourceMode,
-      created_at: row.createdAt.toISOString()
-    }));
+    return buildFeedbackScoringExportRows(rows);
   }
 
   if (kind === "error_classification") {
@@ -318,29 +268,21 @@ export async function getDatasetExportRows(kind: DatasetExportKind) {
       .leftJoin(errorLog, eq(retryDrills.errorLogId, errorLog.id))
       .orderBy(desc(retryDrills.createdAt));
 
-    return rows.map((row) => ({
-      source_error: row.evidence,
-      correction: row.correction,
-      retry_drill: {
-        instruction: row.instruction,
-        items: row.items
-      }
-    }));
+    return buildRetryGenerationExportRows(rows);
   }
 
   const rows = await db
     .select()
     .from(modelOutputs)
-    .where(eq(modelOutputs.accepted, false))
+    .where(
+      and(
+        eq(modelOutputs.accepted, false),
+        isNotNull(modelOutputs.rejectionReason)
+      )
+    )
     .orderBy(desc(modelOutputs.createdAt));
 
-  return rows.map((row) => ({
-    prompt: row.prompt,
-    broken_response: row.rawResponse,
-    rejection_reason: row.rejectionReason,
-    repaired_json: null,
-    created_at: row.createdAt.toISOString()
-  }));
+  return buildJsonRepairExportRows(rows);
 }
 
 function summarizeBy(values: string[]) {

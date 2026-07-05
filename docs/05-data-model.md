@@ -11,6 +11,10 @@ The logical model should stay the same.
 
 ## Core Tables
 
+User-owned tables may include `user_id INTEGER NOT NULL DEFAULT 1` as a
+single-user placeholder. This is not authentication, authorization, or a real
+multi-user model.
+
 ### topics
 
 Stores the learning situation selected by the learner.

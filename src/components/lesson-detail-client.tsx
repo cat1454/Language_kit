@@ -25,7 +25,9 @@ import {
   type DataSource,
   type FeedbackResponse,
   type LessonDetail,
-  type ListeningAttempt
+  type ListeningAttempt,
+  type RoleplayTurn,
+  type WritingSubmission
 } from "@/src/lib/lesson-data";
 import { parseManualFeedbackJson } from "@/src/lib/manual-feedback-json";
 import {
@@ -36,6 +38,8 @@ import {
 } from "@/src/lib/mockStore";
 
 type AttemptInput = Omit<ListeningAttempt, "id" | "lessonPackId" | "createdAt">;
+type RoleplayResponse = { roleplayTurn: RoleplayTurn };
+type WritingDraftResponse = { writingSubmission: WritingSubmission };
 
 export function LessonDetailPageClient({ id }: { id: number }) {
   const [detail, setDetail] = useState<LessonDetail | null>(null);
@@ -47,6 +51,8 @@ export function LessonDetailPageClient({ id }: { id: number }) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatIndex, setChatIndex] = useState(0);
   const [chatInput, setChatInput] = useState("");
+  const [roleplayError, setRoleplayError] = useState("");
+  const [roleplaySaving, setRoleplaySaving] = useState(false);
   const [listeningSummary, setListeningSummary] = useState("");
 
   useEffect(() => {
@@ -54,12 +60,11 @@ export function LessonDetailPageClient({ id }: { id: number }) {
   }, [id]);
 
   useEffect(() => {
-    const firstPrompt = detail?.lesson.roleplay.turns[0]?.ai_prompt;
-    if (firstPrompt) {
-      setChatMessages([{ sender: "ai", text: firstPrompt }]);
-      setChatIndex(0);
-    }
-  }, [detail?.lessonPack.id]);
+    if (!detail) return;
+    const chat = buildChatState(detail);
+    setChatMessages(chat.messages);
+    setChatIndex(chat.index);
+  }, [detail]);
 
   const roleplayResponses = useMemo(
     () => chatMessages.filter((message) => message.sender === "learner").map((message) => message.text),
@@ -165,6 +170,20 @@ export function LessonDetailPageClient({ id }: { id: number }) {
     return response.feedback;
   }
 
+  async function saveWritingDraft(draft: string) {
+    if (source === "demo") return;
+    if (source !== "api") throw new Error("Lesson data source is not ready.");
+    const writingSubmissionId = detail?.writingSubmission?.id;
+    if (!writingSubmissionId) throw new Error("Writing submission is not ready.");
+
+    await requestJson<WritingDraftResponse>("/api/writing-submissions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ lessonId: id, writingSubmissionId, draft })
+    });
+    await refreshDetail();
+  }
+
   async function completeDrill(drillId: number, learnerResult: string) {
     if (source === "demo") {
       mockCompleteRetryDrill(id, drillId, learnerResult);
@@ -180,18 +199,37 @@ export function LessonDetailPageClient({ id }: { id: number }) {
     await refreshDetail();
   }
 
-  function sendChat() {
+  async function sendChat() {
     const response = chatInput.trim();
     if (!response || !detail) return;
-    const nextIndex = chatIndex + 1;
-    const nextPrompt = detail.lesson.roleplay.turns[nextIndex]?.ai_prompt;
-    setChatMessages((messages) => [
-      ...messages,
-      { sender: "learner", text: response },
-      { sender: "ai", text: nextPrompt ?? "Roleplay complete. Continue to writing." }
-    ]);
-    setChatInput("");
-    setChatIndex(nextIndex);
+    const currentTurn = detail.roleplayTurns?.find((turn) => turn.turnIndex === chatIndex + 1);
+    setRoleplaySaving(true);
+    setRoleplayError("");
+    try {
+      if (source === "api") {
+        if (!currentTurn) throw new Error("Roleplay turn is not ready.");
+        await requestJson<RoleplayResponse>("/api/roleplay-turns", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ lessonId: id, turnId: currentTurn.id, learnerResponse: response })
+        });
+        await refreshDetail();
+      } else {
+        const nextIndex = chatIndex + 1;
+        const nextPrompt = detail.lesson.roleplay.turns[nextIndex]?.ai_prompt;
+        setChatMessages((messages) => [
+          ...messages,
+          { sender: "learner", text: response },
+          { sender: "ai", text: nextPrompt ?? "Roleplay complete. Continue to writing." }
+        ]);
+        setChatIndex(nextIndex);
+      }
+      setChatInput("");
+    } catch (caught) {
+      setRoleplayError(caught instanceof Error ? caught.message : "Failed to save roleplay response.");
+    } finally {
+      setRoleplaySaving(false);
+    }
   }
 
   if (loading) return <PageMessage message="Loading lesson information..." source={source} onReconnect={reconnect} />;
@@ -216,10 +254,29 @@ export function LessonDetailPageClient({ id }: { id: number }) {
         <LessonListeningPanel lesson={lesson} initialAttempt={detail.listeningAttempts[0]} onSave={saveListening} onComplete={setListeningSummary} onContinue={() => setActiveTab("roleplay")} />
       ) : null}
       {activeTab === "roleplay" ? (
-        <LessonRoleplay lesson={lesson} messages={chatMessages} input={chatInput} index={chatIndex} setInput={setChatInput} onSend={sendChat} onContinue={() => setActiveTab("writing")} />
+        <LessonRoleplay lesson={lesson} messages={chatMessages} input={chatInput} index={chatIndex} saving={roleplaySaving} error={roleplayError} setInput={setChatInput} onSend={sendChat} onContinue={() => setActiveTab("writing")} />
       ) : null}
-      {activeTab === "writing" ? <LessonWritingPanel lesson={lesson} roleplayResponses={roleplayResponses} listeningSummary={listeningSummary} onSaveFeedback={saveFeedback} /> : null}
+      {activeTab === "writing" ? <LessonWritingPanel lesson={lesson} initialDraft={detail.writingSubmission?.draft} roleplayResponses={roleplayResponses} listeningSummary={listeningSummary} onSaveDraft={saveWritingDraft} onSaveFeedback={saveFeedback} /> : null}
       {activeTab === "review" ? <LessonReviewPanel drills={detail.retryDrills} onComplete={completeDrill} /> : null}
     </main>
   );
+}
+
+function buildChatState(detail: LessonDetail): { messages: ChatMessage[]; index: number } {
+  const turns = detail.roleplayTurns ?? [];
+  if (turns.length === 0) {
+    const firstPrompt = detail.lesson.roleplay.turns[0]?.ai_prompt;
+    return { messages: firstPrompt ? [{ sender: "ai", text: firstPrompt }] : [], index: 0 };
+  }
+
+  const messages: ChatMessage[] = [];
+  for (const turn of turns) {
+    messages.push({ sender: "ai", text: turn.aiPrompt });
+    if (!turn.learnerResponse) {
+      return { messages, index: Math.max(turn.turnIndex - 1, 0) };
+    }
+    messages.push({ sender: "learner", text: turn.learnerResponse });
+  }
+  messages.push({ sender: "ai", text: "Roleplay complete. Continue to writing." });
+  return { messages, index: turns.length };
 }

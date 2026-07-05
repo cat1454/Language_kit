@@ -89,6 +89,8 @@ export function LessonRoleplay({
   messages,
   input,
   index,
+  saving = false,
+  error = "",
   setInput,
   onSend,
   onContinue
@@ -97,10 +99,14 @@ export function LessonRoleplay({
   messages: ChatMessage[];
   input: string;
   index: number;
+  saving?: boolean;
+  error?: string;
   setInput: (value: string) => void;
-  onSend: () => void;
+  onSend: () => void | Promise<void>;
   onContinue: () => void;
 }) {
+  const complete = !lesson.roleplay.turns[index];
+
   return (
     <div className="panel">
       <h2>Roleplay Simulation</h2>
@@ -124,19 +130,21 @@ export function LessonRoleplay({
         <input
           aria-label="Roleplay response"
           value={input}
+          disabled={complete || saving}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") onSend();
           }}
         />
-        <button type="button" className="icon-btn" onClick={onSend} disabled={!input.trim()}>
+        <button type="button" className="icon-btn" onClick={onSend} disabled={complete || saving || !input.trim()}>
           <Send size={16} />
-          <span>Send response</span>
+          <span>{saving ? "Saving..." : "Send response"}</span>
         </button>
         <button type="button" className="secondary" onClick={onContinue}>
           Continue to writing
         </button>
       </div>
+      {error ? <p className="status rejected" role="alert">{error}</p> : null}
     </div>
   );
 }

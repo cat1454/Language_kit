@@ -34,6 +34,24 @@ export type RetryDrill = {
   completedAt?: string | null;
 };
 
+export type RoleplayTurn = {
+  id: number;
+  lessonPackId: number;
+  turnIndex: number;
+  aiPrompt: string;
+  learnerGoal: string;
+  learnerResponse?: string | null;
+};
+
+export type WritingSubmission = {
+  id: number;
+  lessonPackId: number;
+  task: string;
+  constraints: string[];
+  targetChunks: string[];
+  draft?: string | null;
+};
+
 export type LessonDetail = {
   lessonPack: {
     id: number;
@@ -46,6 +64,8 @@ export type LessonDetail = {
   lesson: LessonPackV1;
   listeningInputId?: number;
   listeningAttempts: ListeningAttempt[];
+  roleplayTurns?: RoleplayTurn[];
+  writingSubmission?: WritingSubmission | null;
   retryDrills: RetryDrill[];
 };
 

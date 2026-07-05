@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/src/db/client";
 import {
   errorLog,
@@ -6,9 +6,12 @@ import {
   listeningAttempts,
   listeningInputs,
   modelOutputs,
-  retryDrills
+  retryDrills,
+  roleplayTurns,
+  writingSubmissions
 } from "@/src/db/schema";
-import type { FeedbackV1, SourceMode } from "@/src/lib/contracts";
+import type { FeedbackV1, RejectionReason, SourceMode } from "@/src/lib/contracts";
+import { buildWritingFeedbackPatch } from "@/src/lib/feedback-persistence";
 
 export async function saveListeningAttempt(input: {
   lessonPackId: number;
@@ -37,6 +40,44 @@ export async function saveListeningAttempt(input: {
       .returning();
     return attempt;
   });
+}
+
+export async function saveRoleplayTurnResponse(input: {
+  lessonId: number;
+  turnId: number;
+  learnerResponse: string;
+}) {
+  const db = getDb();
+  const [turn] = await db
+    .update(roleplayTurns)
+    .set({ learnerResponse: input.learnerResponse })
+    .where(
+      and(
+        eq(roleplayTurns.id, input.turnId),
+        eq(roleplayTurns.lessonPackId, input.lessonId)
+      )
+    )
+    .returning();
+  return turn ?? null;
+}
+
+export async function saveWritingDraft(input: {
+  lessonId: number;
+  writingSubmissionId: number;
+  draft: string;
+}) {
+  const db = getDb();
+  const [submission] = await db
+    .update(writingSubmissions)
+    .set({ draft: input.draft })
+    .where(
+      and(
+        eq(writingSubmissions.id, input.writingSubmissionId),
+        eq(writingSubmissions.lessonPackId, input.lessonId)
+      )
+    )
+    .returning();
+  return submission ?? null;
 }
 
 export async function saveFeedback(input: {
@@ -96,11 +137,55 @@ export async function saveFeedback(input: {
       })
       .returning();
 
+    await tx
+      .update(writingSubmissions)
+      .set(buildWritingFeedbackPatch(input.feedback))
+      .where(eq(writingSubmissions.lessonPackId, input.lessonPackId));
+
     return {
       modelOutputId: output.id,
       errorCount: insertedErrors.length,
       retryDrillId: retryDrill.id
     };
+  });
+}
+
+export async function saveRejectedFeedbackOutput(input: {
+  lessonPackId: number;
+  prompt: string;
+  rawAiOutput: string;
+  parsedJson: unknown | null;
+  rejectionReason: RejectionReason;
+  sourceMode: SourceMode;
+  providerOrSite?: string | null;
+  modelName?: string | null;
+}) {
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const [lesson] = await tx
+      .select({ id: lessonPacks.id })
+      .from(lessonPacks)
+      .where(eq(lessonPacks.id, input.lessonPackId))
+      .limit(1);
+
+    if (!lesson) return null;
+
+    const [output] = await tx
+      .insert(modelOutputs)
+      .values({
+        taskType: "feedback_scoring",
+        sourceMode: input.sourceMode,
+        providerOrSite: input.providerOrSite ?? null,
+        modelName: input.modelName ?? null,
+        prompt: input.prompt,
+        rawResponse: input.rawAiOutput,
+        parsedJson: input.parsedJson,
+        accepted: false,
+        rejectionReason: input.rejectionReason
+      })
+      .returning();
+
+    return { modelOutputId: output.id };
   });
 }
 

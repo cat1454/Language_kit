@@ -6,6 +6,7 @@ const repositoryMocks = vi.hoisted(() => ({
   getDashboardSummary: vi.fn(),
   saveListeningAttempt: vi.fn(),
   saveFeedback: vi.fn(),
+  saveRejectedFeedbackOutput: vi.fn(),
   completeRetryDrill: vi.fn()
 }));
 
@@ -29,6 +30,22 @@ describe("GET /api/lesson-packs/:id", () => {
       lesson: validLessonPack,
       listeningInput: { id: 9 },
       listeningAttempts: [],
+      roleplayTurns: [{
+        id: 21,
+        lessonPackId: 42,
+        turnIndex: 1,
+        aiPrompt: "Ask me why I want to move the meeting.",
+        learnerGoal: "Explain the conflict politely.",
+        learnerResponse: "I have a scheduling conflict. Could we reschedule?"
+      }],
+      writingSubmission: {
+        id: 31,
+        lessonPackId: 42,
+        task: validLessonPack.writing_task.task,
+        constraintsJson: validLessonPack.writing_task.constraints,
+        targetChunksJson: validLessonPack.writing_task.target_chunks_to_use,
+        draft: "Sorry for the inconvenience. Would Friday at 3 work for you?"
+      },
       retryDrills: [{
         id: 7,
         lessonPackId: 42,
@@ -47,6 +64,14 @@ describe("GET /api/lesson-packs/:id", () => {
 
     expect(response.status).toBe(200);
     expect(body.detail.listeningInputId).toBe(9);
+    expect(body.detail.roleplayTurns[0]).toMatchObject({
+      id: 21,
+      learnerResponse: "I have a scheduling conflict. Could we reschedule?"
+    });
+    expect(body.detail.writingSubmission).toMatchObject({
+      id: 31,
+      draft: "Sorry for the inconvenience. Would Friday at 3 work for you?"
+    });
     expect(body.detail.retryDrills[0]).toMatchObject({ items: ["One"] });
     expect(body.detail.lessonPack.createdAt).toBe("2026-07-05T00:00:00.000Z");
   });
@@ -187,6 +212,7 @@ describe("POST /api/feedback", () => {
 
   it("rejects invalid feedback and returns 500 for persistence failures", async () => {
     const { POST } = await import("@/app/api/feedback/route");
+    repositoryMocks.saveRejectedFeedbackOutput.mockResolvedValueOnce({ modelOutputId: 10 });
     const invalid = await POST(new Request("http://localhost/api/feedback", {
       method: "POST",
       body: JSON.stringify({

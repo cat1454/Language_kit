@@ -4,6 +4,7 @@ import { validFeedback } from "@/src/demo/lesson-pack-fixture";
 const repositoryMocks = vi.hoisted(() => ({
   saveListeningAttempt: vi.fn(),
   saveFeedback: vi.fn(),
+  saveRejectedFeedbackOutput: vi.fn(),
   completeRetryDrill: vi.fn()
 }));
 
