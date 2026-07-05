@@ -50,6 +50,8 @@ export function buildLessonGenerationExportRows(
 ) {
   return rows.map((row) => ({
     id: row.id,
+    task_type: "lesson_generation",
+    accepted: true,
     prompt: row.prompt,
     raw_response: row.rawAiOutput,
     accepted_normalized_json: row.validatedJson,
@@ -109,9 +111,13 @@ export function buildJsonRepairExportRows(rows: ModelOutputExportSource[]) {
         accepted: false,
         rejection_reason: row.rejectionReason,
         prompt: row.prompt,
+        raw_response: row.rawResponse,
         broken_response: row.rawResponse,
         has_parsed_json: hasParsedJson,
         ...(hasParsedJson ? { parsed_json: row.parsedJson } : {}),
+        source_mode: row.sourceMode ?? null,
+        provider_or_site: row.providerOrSite ?? null,
+        model_name: row.modelName ?? null,
         repaired_json: null,
         created_at: row.createdAt.toISOString()
       };
