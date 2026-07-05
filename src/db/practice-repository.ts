@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/src/db/client";
 import {
   errorLog,
+  lessonPacks,
   listeningAttempts,
   listeningInputs,
   modelOutputs,
@@ -49,6 +50,14 @@ export async function saveFeedback(input: {
 }) {
   const db = getDb();
   return db.transaction(async (tx) => {
+    const [lesson] = await tx
+      .select({ id: lessonPacks.id })
+      .from(lessonPacks)
+      .where(eq(lessonPacks.id, input.lessonPackId))
+      .limit(1);
+
+    if (!lesson) return null;
+
     const [output] = await tx
       .insert(modelOutputs)
       .values({

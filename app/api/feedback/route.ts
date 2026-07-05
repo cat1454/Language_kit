@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { saveFeedback } from "@/src/db/repository";
 import {
-  parseAiJson,
   sourceModeSchema,
   validateFeedback
 } from "@/src/lib/contracts";
+import { parseManualFeedbackJson } from "@/src/lib/manual-feedback-json";
 
 export const runtime = "nodejs";
 
@@ -29,10 +29,13 @@ export async function POST(request: Request) {
   const requestParse = feedbackSubmissionSchema.safeParse(body);
 
   if (!requestParse.success) {
-    return NextResponse.json({ issues: requestParse.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid feedback submission payload.", issues: requestParse.error.issues },
+      { status: 400 }
+    );
   }
 
-  const jsonParse = parseAiJson(requestParse.data.rawAiOutput);
+  const jsonParse = parseManualFeedbackJson(requestParse.data.rawAiOutput);
   if (!jsonParse.success) {
     return NextResponse.json(
       {
@@ -61,6 +64,10 @@ export async function POST(request: Request) {
       ...requestParse.data,
       feedback: feedbackParse.data
     });
+
+    if (!saved) {
+      return NextResponse.json({ error: "Lesson not found." }, { status: 404 });
+    }
 
     return NextResponse.json(
       { status: "accepted", feedback: feedbackParse.data, ...saved },

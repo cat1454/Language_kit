@@ -22,8 +22,15 @@ export async function POST(
   }
   const parsed = completeSchema.safeParse(body);
 
-  if (!Number.isInteger(id) || id <= 0 || !parsed.success) {
-    return NextResponse.json({ error: "Invalid retry drill completion." }, { status: 400 });
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "Invalid retry drill id." }, { status: 400 });
+  }
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid retry drill completion payload.", issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
 
   try {

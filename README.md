@@ -162,6 +162,19 @@ pnpm vitest run tests/integration/repository-postgres.test.ts
 | `POST` | `/api/retry-drills/:id/complete` | Hoàn thành retry drill |
 | `GET` | `/api/exports/:kind` | Tải dataset JSONL |
 
+### Payload notes
+
+- `POST /api/listening-attempts`: client sends `lessonPackId`, learner answers,
+  `scoreGist`, `scoreDetail`, `scoreKeyPhrase`, `replayCount`, and
+  `missedDetails`. The server derives `listeningInputId`; `scoreOverall` and
+  transcript unlock are UI-derived state and are not persisted.
+- `POST /api/feedback`: manual relay accepts plain JSON or one code fence that
+  wraps the whole feedback JSON. The raw AI output is still saved unchanged, and
+  the parsed object must pass `feedback.v1` validation before any error/retry
+  records are inserted.
+- `lesson_pack.v1` remains strict: lesson-generation output should be pasted as
+  plain JSON, not Markdown-wrapped JSON.
+
 Các loại export hợp lệ:
 
 - `lesson_generation_sft`

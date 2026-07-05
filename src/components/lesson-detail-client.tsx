@@ -17,7 +17,7 @@ import {
   type LessonTab
 } from "@/src/components/lesson-static-panels";
 import { ApiError, isBackendUnavailable, requestJson } from "@/src/lib/api-client";
-import { parseAiJson, validateFeedback, type FeedbackV1 } from "@/src/lib/contracts";
+import { validateFeedback, type FeedbackV1 } from "@/src/lib/contracts";
 import {
   clearSessionDataSource,
   getSessionDataSource,
@@ -27,6 +27,7 @@ import {
   type LessonDetail,
   type ListeningAttempt
 } from "@/src/lib/lesson-data";
+import { parseManualFeedbackJson } from "@/src/lib/manual-feedback-json";
 import {
   mockCompleteRetryDrill,
   mockGetLessonDetail,
@@ -138,7 +139,7 @@ export function LessonDetailPageClient({ id }: { id: number }) {
 
   async function saveFeedback(prompt: string, rawAiOutput: string): Promise<FeedbackV1> {
     if (source === "demo") {
-      const parsed = parseAiJson(rawAiOutput);
+      const parsed = parseManualFeedbackJson(rawAiOutput);
       if (!parsed.success) throw new Error(parsed.errors.join("; "));
       const validated = validateFeedback(parsed.data);
       if (!validated.success) throw new Error(validated.errors.join("; "));
@@ -193,9 +194,9 @@ export function LessonDetailPageClient({ id }: { id: number }) {
     setChatIndex(nextIndex);
   }
 
-  if (loading) return <PageMessage message="Loading lesson information..." />;
-  if (notFound) return <PageMessage message="Lesson not found." rejected />;
-  if (loadError || !detail) return <PageMessage message={loadError || "Failed to load lesson."} rejected onRetry={loadDetail} />;
+  if (loading) return <PageMessage message="Loading lesson information..." source={source} onReconnect={reconnect} />;
+  if (notFound) return <PageMessage message="Lesson not found." rejected source={source} onReconnect={reconnect} />;
+  if (loadError || !detail) return <PageMessage message={loadError || "Failed to load lesson."} rejected onRetry={loadDetail} source={source} onReconnect={reconnect} />;
 
   const { lesson } = detail;
   return (

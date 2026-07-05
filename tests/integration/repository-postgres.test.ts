@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "@/src/db/client";
-import { modelOutputs, topics } from "@/src/db/schema";
+import { errorLog, modelOutputs, retryDrills, topics } from "@/src/db/schema";
 import {
   completeRetryDrill,
   getDashboardSummary,
@@ -108,6 +108,8 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
       feedback: validFeedback,
       sourceMode: "manual_free_relay"
     });
+    expect(feedback).not.toBeNull();
+    if (!feedback) throw new Error("Expected feedback to be saved.");
     await completeRetryDrill(feedback.retryDrillId, "I would like to reschedule.");
 
     const detail = await getLessonPackDetail(lessonPackId);
@@ -121,6 +123,26 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
       completedRetryDrills: 1,
       repeatedErrorTypes: { naturalness: 1 }
     });
+  });
+
+  it("returns null for feedback targeting a missing lesson without orphan inserts", async () => {
+    const result = await saveFeedback({
+      lessonPackId: 999,
+      prompt: "Evaluate the learner attempt",
+      rawAiOutput: JSON.stringify(validFeedback),
+      feedback: validFeedback,
+      sourceMode: "manual_free_relay"
+    });
+
+    const db = getDb();
+    const outputs = await db.select().from(modelOutputs);
+    const errors = await db.select().from(errorLog);
+    const drills = await db.select().from(retryDrills);
+
+    expect(result).toBeNull();
+    expect(outputs).toHaveLength(0);
+    expect(errors).toHaveLength(0);
+    expect(drills).toHaveLength(0);
   });
 });
 
