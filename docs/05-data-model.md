@@ -73,6 +73,7 @@ Fields:
 - `lesson_pack_id`
 - `script`
 - `audio_path`
+- `audio_metadata_json`
 - `recommended_voice`
 - `accent`
 - `speed`

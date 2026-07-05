@@ -5,6 +5,7 @@ import {
   errorLog,
   lessonPacks,
   listeningAttempts,
+  listeningInputs,
   modelOutputs,
   retryDrills,
   topics
@@ -185,6 +186,52 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
 
     expect(lessonRow?.userId).toBe(1);
     expect(attemptRow?.userId).toBe(1);
+  });
+
+  it("loads legacy audio paths and optional Listening v2 metadata", async () => {
+    const saved = await saveLessonPackSubmission({
+      prompt: "Generate lesson_pack.v1",
+      rawAiOutput: JSON.stringify(validLessonPack),
+      parsedJson: validLessonPack,
+      validatedJson: validLessonPack,
+      sourceMode: "manual_free_relay",
+      status: "accepted",
+      rejectionReason: null
+    });
+    const lessonPackId = saved.id as number;
+    const db = getDb();
+    await db
+      .update(listeningInputs)
+      .set({ audioPath: "/audio/lessons/legacy.mp3" })
+      .where(eq(listeningInputs.lessonPackId, lessonPackId));
+
+    const legacyDetail = await getLessonPackDetail(lessonPackId);
+    expect(legacyDetail?.listeningInput).toMatchObject({
+      audioPath: "/audio/lessons/legacy.mp3",
+      audioMetadataJson: null
+    });
+
+    await db
+      .update(listeningInputs)
+      .set({
+        audioMetadataJson: {
+          defaultVoiceId: "default",
+          variants: [{
+            voiceId: "default",
+            label: "Default voice",
+            audioPath: "/audio/lessons/default.mp3"
+          }],
+          chunkTimings: [{ chunkIndex: 0, startMs: 0, endMs: 5000 }],
+          durationMs: 65000
+        }
+      })
+      .where(eq(listeningInputs.lessonPackId, lessonPackId));
+
+    const metadataDetail = await getLessonPackDetail(lessonPackId);
+    expect(metadataDetail?.listeningInput?.audioMetadataJson).toMatchObject({
+      defaultVoiceId: "default",
+      durationMs: 65000
+    });
   });
 
   it("returns null for feedback targeting a missing lesson without orphan inserts", async () => {

@@ -1,214 +1,176 @@
 # Current Stage - Language Kit
 
 Audit/update date: 2026-07-05
-Branch: `chore/dogfood-eval-calibration`
+Branch: `feat/listening-v2-interaction`
 
 ## Stage ID
 
-`M7_5_DOGFOOD_EVAL_CALIBRATION`
+`M8_LISTENING_V2_INTERACTION`
 
 ## Current Milestone Status
 
-Prompt 7.5 - First dogfood run + eval calibration: complete.
+Prompt 8 - Listening v2 interaction: complete locally.
 
-Prompt 7 is complete and checkpoint committed. Preflight was clean on
-`chore/dogfood-eval-calibration`, with latest Prompt 7 commit
-`7a20de6 Add dogfood eval set v0`.
+Prompt 7.5 was checkpoint committed before Prompt 8 began. Preflight was clean
+on `feat/listening-v2-interaction`, with Prompt 7.5 commit
+`c763657 Complete first dogfood calibration`.
 
-Prompt 7.5 reviewed the first real dogfood session log without fabricating
-sessions, AI outputs, learner writing, or feedback JSON. No eval rows were
-added because the real log did not include a deterministic gap with enough
-evidence.
+Listening v2 adds interaction around manually assigned/static audio. It does not
+add TTS, STT/ASR, microphone recording, speaking assessment, AI provider calls,
+local model calls, paid model calls, or third-party website automation.
 
-- Milestone 1, Prompt Builder And Schema Validation: hardened and covered by eval v0.
-- Milestone 2, Lesson Display And Storage: done at a usable level.
-- Milestone 3, Listening Checks And Logs: done at a usable level.
-- Milestone 4, Roleplay, Writing, Feedback Paste, Export Cleanup, And Data Safety: complete.
+- Milestone 1, Prompt Builder And Schema Validation: complete.
+- Milestone 2, Lesson Display And Storage: complete at MVP scope.
+- Milestone 3, Listening Checks And Logs: complete at MVP scope.
+- Milestone 4, Persistence, Feedback, Retry, Export, And Data Safety: complete.
 - Milestone 5, Listening v1 foundation: complete.
-- Milestone 6, Dataset Export: covered by eval v0 shape checks.
+- Milestone 6, Dataset Export: covered by eval v0.
 - Milestone 7, Dogfood + Eval Set v0: complete.
-- Milestone 7.5, First Dogfood Run + Eval Calibration: complete with no eval row additions.
+- Milestone 7.5, First Dogfood Run + Eval Calibration: complete.
+- Milestone 8, Listening v2 Interaction: complete locally.
 
 ## What Is Done
 
-- Prompt 7 checkpoint commit was verified before Prompt 7.5 work. Evidence: `git log -1 --oneline` returned `7a20de6 Add dogfood eval set v0`.
-- Prompt 7.5 preflight started from a clean worktree on `chore/dogfood-eval-calibration`. Evidence: `git status --short --branch` returned only the branch line.
-- Prompt 7 baseline still passes. Evidence: `corepack pnpm eval:v0`, `corepack pnpm check`, and `corepack pnpm test:all` passed.
-- Eval v0 remains deterministic and model-free. Evidence: `tests/unit/eval-set-v0.test.ts:91`, `tests/unit/eval-set-v0.test.ts:129`, `tests/unit/eval-set-v0.test.ts:137`, `tests/unit/eval-set-v0.test.ts:149`.
-- `eval/eval_set_v0.jsonl` was not changed during Prompt 7.5 because no deterministic gap was justified by the real dogfood evidence.
-- The first real dogfood log was reviewed. Evidence: `eval/dogfood_sessions/2026-07-05-reschedule-meeting.md` records accepted lesson JSON, completed listening checks, correct transcript gating, saved roleplay and writing work, accepted feedback JSON, completed retry drill, and inspected JSONL export rows.
-- The real log was classified as `dogfood_note_not_eval_actionable` for eval-row purposes because `Add eval seed: yes` did not include a suggested row ID, short reason, raw malformed JSON, contract rejection, or concrete export shape gap.
-- `eval/dogfood_sessions/` now exists as the approved location for real dogfood logs. Evidence: `eval/dogfood_sessions/.gitkeep:1`.
-- A dogfood runbook now documents how to collect real session evidence without fabricated or sensitive data. Evidence: `docs/dogfood-runbook.md:3`, `docs/dogfood-runbook.md:10`, `docs/dogfood-runbook.md:16`, `docs/dogfood-runbook.md:50`.
-- Dogfood helper scripts exist for safe local automation: `dogfood:new` creates a blank session template, `dogfood:assist` opens a Playwright-assisted manual session and records user-entered evidence, and `dogfood:check` refuses placeholder or draft logs before running `eval:v0`. Evidence: `package.json:20`, `package.json:21`, `package.json:22`, `scripts/dogfood-new.mjs:35`, `scripts/dogfood-assist.mjs:34`, `scripts/dogfood-assist.mjs:53`, `scripts/dogfood-check.mjs:59`.
-- Contracts remain strict and unchanged. Evidence: `src/lib/contracts.ts:75`, `src/lib/contracts.ts:141`, `src/lib/manual-feedback-json.ts:3`.
+- Added optional `listening_inputs.audio_metadata_json` storage with generated
+  Drizzle migration `0002_overconfident_captain_america.sql`.
+- Kept `lesson_pack.v1` unchanged; audio metadata remains app/storage metadata.
+- Added strict metadata normalization for optional voice variants, chunk
+  timings, default voice, and duration. Malformed metadata falls back to null.
+- Added client-side speed control for `0.75x`, `1.0x`, and `1.25x`.
+- Added optional voice selection backed only by manually supplied audio paths.
+- Added timed chunk replay that seeks the HTML audio element and pauses at the
+  configured end time.
+- Added the safe missing-timing message:
+  `Chunk replay needs timing metadata.`
+- Added local-only dictation practice. Transcript comparison remains locked
+  until the listening attempt is saved.
+- Added shadowing controls without microphone, recording, STT, or scoring.
+- Preserved the Listening v1 demo timer when no audio path or variant exists.
+- Preserved transcript gating and the listening-first workflow order.
+- Preserved M4 persistence/export behavior and learner-facing `user_id` safety.
+- Added `docs/listening-v2.md` and updated the data-model field list.
+
+## Data And Contract Impact
+
+- `lesson_pack.v1`: unchanged.
+- `feedback.v1` and manual feedback validation: unchanged.
+- Database: nullable `listening_inputs.audio_metadata_json` added.
+- Lesson detail payload: optional normalized `listeningInput.audioMetadata`
+  added; malformed/missing metadata returns null.
+- Exports: unchanged.
+- Eval set: unchanged.
+- Learner-facing `user_id`: still excluded.
+
+## Migration Evidence
+
+A disposable PostgreSQL database was created with migrations `0000` and `0001`.
+An existing lesson with only `audio_path` was inserted before migration `0002`.
+After applying `0002`, the row retained its audio path and returned null
+metadata. The opt-in repository suite then passed all 7 tests against the
+disposable database, including legacy and metadata-bearing detail loads. The
+disposable database was removed afterward.
+
+The local development database was also migrated with `corepack pnpm
+db:migrate`. Before that migration, one `mvp-flow` test failed because the live
+database lacked `audio_metadata_json`; after migration, the exact suite passed
+5 of 5 tests.
 
 ## What Is Missing
 
-- Richer dogfood logs with raw rejected/invalid lesson or feedback JSON when failures occur.
-- Concrete export shape gap notes if JSONL rows are confusing or incomplete.
-- Suggested eval row IDs and short reasons whenever `Add eval seed` is marked `yes`.
-- More sessions before changing eval v0 coverage beyond the current 24 rows.
+- Manually prepared variant audio files and timing metadata for real lessons.
+- Persistence for dictation drafts or shadowing activity.
+- TTS/audio generation.
+- STT/ASR and microphone recording.
+- Speaking or pronunciation assessment.
 
 ## In Scope For The Next Stage
 
-Next safest implementation prompt: `Prompt 7.6 - Dogfood evidence quality pass`
+Next implementation stage: Prompt 9 - Speaking/STT integration.
 
-- Collect a second real dogfood session with complete evidence notes.
-- If an eval seed is requested, require a row ID, short reason, and raw evidence or named export gap.
-- Add at most 5 eval rows only if real evidence justifies them.
-- Keep `lesson_pack.v1`, `feedback.v1`, Listening v1, M4 persistence, export hygiene, and `user_id` API safety intact.
+Prompt 9 must be planned separately with explicit privacy, permission,
+recording, transcription, provider, storage, and deletion decisions. Listening
+v2 does not pre-authorize any microphone or model integration.
 
-## Out Of Scope
+## Acceptance Checklist For Prompt 8
 
-- Fabricated dogfood sessions
-- Fabricated AI outputs
-- Fabricated learner writing
-- Fabricated feedback JSON
-- Subjective model quality scoring
-- Teacher-quality scoring
-- Fluency scoring
-- Automatic correction grading
-- Fine-tune target generation
-- `lesson_pack.v1` schema changes
-- `feedback.v1`/manual feedback contract changes
-- Zod parser permissiveness changes
-- Database migrations
-- Learner-facing API payload changes
-- AI provider integration
-- Third-party AI website automation
-- TTS/STT
-- Listening v1 audio changes
-
-## Acceptance Checklist For Prompt 7.5
-
-- [x] Prompt 7 checkpoint commit verified before Prompt 7.5 changes.
-- [x] Worktree was clean before Prompt 7.5.
-- [x] Branch `chore/dogfood-eval-calibration` used.
-- [x] Prompt 7 baseline verified with `eval:v0`, focused eval test, and `pnpm check`.
-- [x] Prompt 7 regression gate verified with `pnpm test:all`.
-- [x] No AI/provider call was needed.
-- [x] Real dogfood logs were searched.
-- [x] First real dogfood log was reviewed.
-- [x] Session issues were classified.
-- [x] No deterministic eval-row gap was found.
-- [x] Fabricated sessions, AI outputs, learner writing, and feedback JSON were avoided.
-- [x] `eval/eval_set_v0.jsonl` was not modified.
-- [x] `eval/dogfood_sessions/` placeholder was added.
-- [x] Dogfood runbook was added.
-- [x] Safe dogfood helper scripts were added without provider/model automation.
-- [x] Playwright-assisted dogfood mode was added for human-entered real evidence.
-- [x] Prompt 7.5 is marked complete with no eval row additions.
+- [x] Prompt 7.5 checkpoint commit verified.
+- [x] Prompt 8 started from a clean `feat/listening-v2-interaction` branch.
+- [x] Optional audio metadata storage and migration added.
+- [x] Existing audio-path-only lessons remain compatible.
+- [x] Malformed metadata falls back safely.
+- [x] Speed control uses HTML audio `playbackRate` only.
+- [x] Voice variants use manually supplied audio paths only.
+- [x] Chunk replay requires timing metadata.
+- [x] Missing chunk timings show a non-blocking message.
+- [x] Dictation transcript comparison remains gated.
+- [x] Shadowing requests no microphone permission.
+- [x] Missing-audio fallback remains available.
+- [x] `lesson_pack.v1` and feedback contracts remain unchanged.
+- [x] M4 persistence/export behavior remains unchanged.
+- [x] Learner-facing `user_id` remains excluded.
+- [x] No TTS, STT/ASR, recording, speaking assessment, or AI provider added.
 
 ## Verification Run
 
 ```text
-git status --short --branch
-Result: clean on chore/dogfood-eval-calibration before Prompt 7.5 changes.
-
-git log -1 --oneline
-Result: 7a20de6 Add dogfood eval set v0
-
-rg -n "Prompt 7 - Dogfood \+ eval set v0: complete|M7_DOGFOOD_EVAL_SET_V0|Prompt 7.5" current-stage.md
-Result: Prompt 7 complete and Prompt 7.5 next-stage evidence found before this update.
-
-corepack pnpm eval:v0
-Result: passed. 1 file passed, 3 tests passed.
-
-corepack pnpm vitest run tests/unit/eval-set-v0.test.ts
-Result: passed. 1 file passed, 3 tests passed.
-
 corepack pnpm check
-Result: passed. File-size check passed: 62 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
+Result: passed. File-size check passed; 17 test files passed, 1 skipped.
+95 tests passed, 7 PostgreSQL tests skipped by default.
 
-Test-Path docs/dogfood-runbook.md; Test-Path eval/dogfood_sessions
-Result before this update: False, False.
-
-corepack pnpm eval:v0
-Result after blocker/runbook update: passed. 1 file passed, 3 tests passed.
-
-corepack pnpm check
-Result after blocker/runbook update: passed. File-size check passed: 62 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
-
-Get-ChildItem -Force -Recurse eval\dogfood_sessions
-Result: only eval/dogfood_sessions/.gitkeep was present; no real dogfood logs were available to review.
-
-corepack pnpm eval:v0
-Result after resume request: passed. 1 file passed, 3 tests passed.
-
-corepack pnpm check
-Result after resume request: passed. File-size check passed: 62 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
+corepack pnpm test:coverage
+Result: passed. Statements 96.77%, branches 90.84%, functions 98.63%,
+lines 97.79%.
 
 corepack pnpm test:all
-Result after resume request: passed. `pnpm check` and coverage run both passed; coverage summary statements 96.66%, branches 90.57%, functions 98.59%, lines 97.72%.
+Result: passed with the same test and coverage results.
 
-corepack pnpm dogfood:check
-Result after helper update: failed by design with exit code 1 because no real dogfood logs were present. Output: "No real dogfood logs found. Use `pnpm dogfood:new <slug>`, fill it from a real session, then rerun this check."
+corepack pnpm build
+Result: passed. Next.js production build compiled, typed, and generated routes.
 
-corepack pnpm dogfood:new smoke-test
-Result after helper update: passed. Created eval/dogfood_sessions/2026-07-05-smoke-test.md from the blank template; the smoke-test template file was removed afterward so it would not be confused with real evidence.
+corepack pnpm vitest run tests/integration/lesson-detail-safety-routes.test.ts
+Result: passed. 1 file, 4 tests.
 
-corepack pnpm eval:v0
-Result after helper update: passed. 1 file passed, 3 tests passed.
+corepack pnpm vitest run tests/integration/learning-routes.test.ts
+Result: passed. 1 file, 13 tests.
 
-corepack pnpm check
-Result after helper update: passed. File-size check passed: 64 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
+RUN_DB_TESTS=1 DATABASE_URL=<disposable>
+corepack pnpm vitest run tests/integration/repository-postgres.test.ts
+Result: passed. 1 file, 7 tests.
 
-corepack pnpm test:all
-Result after helper update: passed. `pnpm check` and coverage run both passed; coverage summary statements 96.66%, branches 90.57%, functions 98.59%, lines 97.72%.
+corepack pnpm playwright test tests/e2e/listening-v1.spec.ts --workers=1
+Result: passed. 2 tests.
 
-Updated eval/dogfood_sessions/2026-07-05-reschedule-meeting.md
-Result: prefilled safe default B1 workplace meeting metadata only; all evidence fields remain TODO after real session.
+corepack pnpm playwright test tests/e2e/mvp-flow.spec.ts --workers=1
+Initial result: 1 failed because the local database had not applied migration
+0002. Classified as environment/schema state.
 
-corepack pnpm dogfood:check
-Result after prefilled draft update: failed by design with exit code 1 because the draft has no real yes/no evidence fields.
+corepack pnpm db:migrate
+Result: passed. Migration 0002 applied to the local development database.
 
-corepack pnpm eval:v0
-Result after prefilled draft update: passed. 1 file passed, 3 tests passed.
+corepack pnpm playwright test tests/e2e/mvp-flow.spec.ts --workers=1
+Result after migration: passed. 5 tests.
 
-corepack pnpm check
-Result after prefilled draft update: passed. File-size check passed: 64 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
+corepack pnpm playwright test tests/e2e/mvp-hardening.spec.ts --workers=1
+Result: passed. 3 tests.
 
-corepack pnpm dogfood:assist -- --dry-run
-Result after Playwright assist update: passed. Output confirmed the helper is ready for eval/dogfood_sessions/2026-07-05-reschedule-meeting.md at http://localhost:3000.
+corepack pnpm playwright test tests/e2e/listening-v2.spec.ts --workers=1
+Result: passed. 5 tests.
 
-corepack pnpm dogfood:check
-Result after Playwright assist update: failed by design with exit code 1 because the draft still has no real yes/no evidence fields.
-
-corepack pnpm eval:v0
-Result after Playwright assist update: passed. 1 file passed, 3 tests passed.
-
-corepack pnpm check
-Result after Playwright assist update: passed. File-size check passed: 65 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
-
-corepack pnpm dogfood:check
-Result after real dogfood log update: passed. Real dogfood log found: eval/dogfood_sessions/2026-07-05-reschedule-meeting.md. Eval v0 passed with 1 file passed and 3 tests passed.
-
-Reviewed eval/dogfood_sessions/2026-07-05-reschedule-meeting.md
-Result: accepted lesson JSON, listening completed, transcript gating passed, roleplay and writing saved, feedback accepted, retry completed, exports inspected. No eval rows added because no raw invalid output, contract rejection, export gap, suggested row ID, or short reason was present.
+corepack pnpm test:e2e
+Result: passed. 15 tests.
 
 corepack pnpm eval:v0
-Result after Prompt 7.5 completion update: passed. 1 file passed, 3 tests passed.
+Result: passed. 1 file, 3 tests.
 
-corepack pnpm check
-Result after Prompt 7.5 completion update: passed. File-size check passed: 65 files checked, 3 legacy exceptions frozen. Vitest: 17 passed, 1 skipped; 93 tests passed, 6 skipped.
-
-corepack pnpm test:all
-Result after Prompt 7.5 completion update: passed. `pnpm check` and coverage run both passed; coverage summary statements 96.66%, branches 90.57%, functions 98.59%, lines 97.72%.
-
-git diff -- eval/eval_set_v0.jsonl
-Result: no diff; eval set unchanged.
+corepack pnpm dogfood:check
+Result: passed. Real dogfood log found and eval v0 passed.
 
 git diff --check
-Result: passed with CRLF line-ending warnings only.
-
-git status --short --branch
-Result: dirty worktree with Prompt 7.5 blocker files current-stage.md, docs/dogfood-runbook.md, and eval/dogfood_sessions/.gitkeep, plus unrelated local/generated next-env.d.ts churn.
+Result before final stage update: passed with CRLF warnings only.
 ```
 
 ## Last Update Notes
 
-- Prompt 7.5 reviewed the first real dogfood log and is complete with no eval row additions.
-- No eval rows were added or changed because no deterministic gap had enough evidence.
-- No contract, parser, database, learner-facing API, AI provider, TTS/STT, export behavior, or Listening v1 audio behavior changed.
-- Next prompt should collect richer dogfood evidence before changing eval v0.
+- Prompt 8 is complete locally and verified.
+- No commit or push was made for Prompt 8.
+- Prompt 9 remains separate and out of scope.

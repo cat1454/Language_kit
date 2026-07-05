@@ -1,4 +1,5 @@
 import type { FeedbackV1, LessonPackV1 } from "@/src/lib/contracts";
+import type { ListeningAudioMetadata } from "@/src/lib/listening-audio-metadata";
 import {
   bigint,
   boolean,
@@ -116,7 +117,8 @@ export const listeningInputs = pgTable(
     durationSeconds: integer("duration_seconds").notNull(),
     transcriptVisibleAfterAttempt: boolean("transcript_visible_after_attempt")
       .default(true)
-      .notNull()
+      .notNull(),
+    audioMetadataJson: jsonb("audio_metadata_json").$type<ListeningAudioMetadata | null>()
   },
   (table) => [index("listening_inputs_lesson_pack_id_idx").on(table.lessonPackId)]
 );

@@ -1,4 +1,5 @@
 import type { FeedbackV1, LessonPackV1 } from "@/src/lib/contracts";
+import type { ListeningAudioMetadata } from "@/src/lib/listening-audio-metadata";
 
 export type DataSource = "api" | "demo";
 
@@ -66,6 +67,7 @@ export type LessonDetail = {
   listeningInput?: {
     id: number;
     audioPath: string | null;
+    audioMetadata: ListeningAudioMetadata | null;
   };
   listeningAttempts: ListeningAttempt[];
   roleplayTurns?: RoleplayTurn[];

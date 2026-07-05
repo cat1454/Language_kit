@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLessonPackDetail } from "@/src/db/repository";
+import { normalizeListeningAudioMetadata } from "@/src/lib/listening-audio-metadata";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,10 @@ export async function GET(
         listeningInputId: result.listeningInput.id,
         listeningInput: {
           id: result.listeningInput.id,
-          audioPath: result.listeningInput.audioPath ?? null
+          audioPath: result.listeningInput.audioPath ?? null,
+          audioMetadata: normalizeListeningAudioMetadata(
+            result.listeningInput.audioMetadataJson
+          )
         },
         listeningAttempts: result.listeningAttempts.map((attempt) => ({
           id: attempt.id,
