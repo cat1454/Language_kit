@@ -130,6 +130,26 @@ Fields:
 - `feedback_json`
 - `created_at`
 
+### speaking_attempts
+
+Stores optional speaking practice metadata and manual transcripts. Prompt 9
+does not persist audio; `audio_path` is reserved for a later explicitly
+approved storage workflow.
+
+Fields:
+
+- `id`
+- `lesson_pack_id`
+- `user_id INTEGER NOT NULL DEFAULT 1`
+- `prompt_type`
+- `prompt_ref`
+- `audio_path`
+- `transcript`
+- `stt_provider`
+- `stt_status`
+- `created_at`
+- `updated_at`
+
 ### writing_submissions
 
 Stores writing practice.

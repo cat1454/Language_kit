@@ -11,3 +11,5 @@ Do not create future `X.5` prompts for every small task. Use an `X.5` prompt onl
 - CI/CD later, before team collaboration or hosted deployment.
 - Auth/user migration later, when moving beyond the single-user placeholder.
 - Observability/logging later, before production or multi-learner use.
+- Speaking-audio retention and deletion controls before any recording is
+  persisted beyond the current browser page session.

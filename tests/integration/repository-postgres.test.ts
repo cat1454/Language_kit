@@ -8,7 +8,7 @@ import {
   listeningInputs,
   modelOutputs,
   retryDrills,
-  topics
+  speakingAttempts
 } from "@/src/db/schema";
 import {
   completeRetryDrill,
@@ -20,34 +20,28 @@ import {
   saveListeningAttempt,
   saveLessonPackSubmission,
   saveRejectedFeedbackOutput,
+  saveSpeakingAttempt,
   saveWritingDraft
 } from "@/src/db/repository";
 import { validFeedback, validLessonPack } from "@/src/demo/lesson-pack-fixture";
+import {
+  cleanRepositoryDatabase,
+  saveValidAcceptedLesson
+} from "@/tests/integration/repository-test-helpers";
 
 const runDbTests = process.env.RUN_DB_TESTS === "1";
 
 describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
   beforeEach(async () => {
-    await cleanDatabase();
+    await cleanRepositoryDatabase();
   });
 
   afterEach(async () => {
-    await cleanDatabase();
+    await cleanRepositoryDatabase();
   });
 
   it("persists an accepted lesson pack and exposes it for listing/export", async () => {
-    const saved = await saveLessonPackSubmission({
-      prompt: "Generate lesson_pack.v1",
-      rawAiOutput: JSON.stringify(validLessonPack),
-      parsedJson: validLessonPack,
-      validatedJson: validLessonPack,
-      sourceMode: "manual_free_relay",
-      providerOrSite: "manual",
-      modelName: "unknown",
-      status: "accepted",
-      rejectionReason: null,
-      sessionMinutes: 30
-    });
+    const saved = await saveValidAcceptedLesson();
 
     const lessons = await listLessonPacks();
     const rows = await getDatasetExportRows("lesson_generation_sft");
@@ -90,15 +84,7 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
   });
 
   it("persists listening, feedback, retry completion, and dashboard progress", async () => {
-    const saved = await saveLessonPackSubmission({
-      prompt: "Generate lesson_pack.v1",
-      rawAiOutput: JSON.stringify(validLessonPack),
-      parsedJson: validLessonPack,
-      validatedJson: validLessonPack,
-      sourceMode: "manual_free_relay",
-      status: "accepted",
-      rejectionReason: null
-    });
+    const saved = await saveValidAcceptedLesson();
     const lessonPackId = saved.id as number;
 
     const attempt = await saveListeningAttempt({
@@ -151,15 +137,7 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
   });
 
   it("uses the single-user placeholder default for parent and practice rows", async () => {
-    const saved = await saveLessonPackSubmission({
-      prompt: "Generate lesson_pack.v1",
-      rawAiOutput: JSON.stringify(validLessonPack),
-      parsedJson: validLessonPack,
-      validatedJson: validLessonPack,
-      sourceMode: "manual_free_relay",
-      status: "accepted",
-      rejectionReason: null
-    });
+    const saved = await saveValidAcceptedLesson();
     const lessonPackId = saved.id as number;
 
     const attempt = await saveListeningAttempt({
@@ -189,15 +167,7 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
   });
 
   it("loads legacy audio paths and optional Listening v2 metadata", async () => {
-    const saved = await saveLessonPackSubmission({
-      prompt: "Generate lesson_pack.v1",
-      rawAiOutput: JSON.stringify(validLessonPack),
-      parsedJson: validLessonPack,
-      validatedJson: validLessonPack,
-      sourceMode: "manual_free_relay",
-      status: "accepted",
-      rejectionReason: null
-    });
+    const saved = await saveValidAcceptedLesson();
     const lessonPackId = saved.id as number;
     const db = getDb();
     await db
@@ -234,6 +204,36 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
     });
   });
 
+  it("persists a manual speaking attempt with the user placeholder default", async () => {
+    const saved = await saveValidAcceptedLesson();
+    const lessonPackId = saved.id as number;
+
+    const attempt = await saveSpeakingAttempt({
+      lessonPackId,
+      promptType: "roleplay",
+      promptRef: "Ask to move the meeting politely.",
+      transcript: "Could we reschedule for Friday?",
+      sttProvider: "manual",
+      sttStatus: "completed"
+    });
+    const detail = await getLessonPackDetail(lessonPackId);
+    const [storedAttempt] = await getDb()
+      .select()
+      .from(speakingAttempts)
+      .where(eq(speakingAttempts.id, attempt?.id ?? 0));
+
+    expect(storedAttempt).toMatchObject({
+      userId: 1,
+      lessonPackId,
+      audioPath: null,
+      transcript: "Could we reschedule for Friday?",
+      sttProvider: "manual",
+      sttStatus: "completed"
+    });
+    expect(detail?.lessonPack.id).toBe(lessonPackId);
+    expect(detail?.lesson.schema_version).toBe("lesson_pack.v1");
+  });
+
   it("returns null for feedback targeting a missing lesson without orphan inserts", async () => {
     const result = await saveFeedback({
       lessonPackId: 999,
@@ -255,15 +255,7 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
   });
 
   it("persists rejected feedback output without creating feedback side effects", async () => {
-    const saved = await saveLessonPackSubmission({
-      prompt: "Generate lesson_pack.v1",
-      rawAiOutput: JSON.stringify(validLessonPack),
-      parsedJson: validLessonPack,
-      validatedJson: validLessonPack,
-      sourceMode: "manual_free_relay",
-      status: "accepted",
-      rejectionReason: null
-    });
+    const saved = await saveValidAcceptedLesson();
     const db = getDb();
     const beforeErrors = await db.select().from(errorLog);
     const beforeDrills = await db.select().from(retryDrills);
@@ -292,9 +284,3 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
     expect(afterDrills).toHaveLength(beforeDrills.length);
   });
 });
-
-async function cleanDatabase() {
-  const db = getDb();
-  await db.delete(modelOutputs);
-  await db.delete(topics);
-}

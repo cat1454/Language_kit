@@ -31,7 +31,10 @@ export function LessonSpeakingPanel({
       typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia)
     );
     return () => {
-      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      if (recorderRef.current?.state === "recording") {
+        recorderRef.current.onstop = null;
+        recorderRef.current.stop();
+      }
       stopTracks(streamRef.current);
     };
   }, []);
@@ -170,7 +173,13 @@ function saveDemoAttempt(payload: {
   transcript: string;
 }) {
   const key = "language_kit_demo_speaking_attempts";
-  const existing = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown[];
+  let existing: unknown[] = [];
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+    if (Array.isArray(parsed)) existing = parsed;
+  } catch {
+    // Replace malformed browser-only demo state with the new valid attempt.
+  }
   localStorage.setItem(key, JSON.stringify([
     ...existing,
     { ...payload, sttProvider: "manual", sttStatus: "completed", createdAt: new Date().toISOString() }
