@@ -8,10 +8,15 @@ import {
   modelOutputs,
   retryDrills,
   roleplayTurns,
+  speakingAttempts,
   writingSubmissions
 } from "@/src/db/schema";
 import type { FeedbackV1, RejectionReason, SourceMode } from "@/src/lib/contracts";
 import { buildWritingFeedbackPatch } from "@/src/lib/feedback-persistence";
+import type {
+  SpeakingSttProvider,
+  SpeakingSttStatus
+} from "@/src/lib/speaking-transcription";
 
 export async function saveListeningAttempt(input: {
   lessonPackId: number;
@@ -37,6 +42,32 @@ export async function saveListeningAttempt(input: {
     const [attempt] = await tx
       .insert(listeningAttempts)
       .values({ ...input, listeningInputId: listeningInput.id })
+      .returning();
+    return attempt;
+  });
+}
+
+export async function saveSpeakingAttempt(input: {
+  lessonPackId: number;
+  promptType: string;
+  promptRef: string | null;
+  transcript: string | null;
+  sttProvider: SpeakingSttProvider | null;
+  sttStatus: SpeakingSttStatus;
+}) {
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const [lesson] = await tx
+      .select({ id: lessonPacks.id })
+      .from(lessonPacks)
+      .where(eq(lessonPacks.id, input.lessonPackId))
+      .limit(1);
+
+    if (!lesson) return null;
+
+    const [attempt] = await tx
+      .insert(speakingAttempts)
+      .values(input)
       .returning();
     return attempt;
   });

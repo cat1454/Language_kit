@@ -31,6 +31,7 @@ export {
   saveListeningAttempt,
   saveRejectedFeedbackOutput,
   saveRoleplayTurnResponse,
+  saveSpeakingAttempt,
   saveWritingDraft
 } from "@/src/db/practice-repository";
 export { getLessonPackDetail } from "@/src/db/lesson-detail-repository";

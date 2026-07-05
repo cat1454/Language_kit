@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { DataSourceNotice } from "@/src/components/data-source-notice";
 import { LessonListeningPanel } from "@/src/components/lesson-listening-panel";
 import { LessonReviewPanel } from "@/src/components/lesson-review-panel";
+import { LessonSpeakingPanel } from "@/src/components/lesson-speaking-panel";
 import { LessonWritingPanel } from "@/src/components/lesson-writing-panel";
 import {
   LessonRoleplay,
@@ -254,7 +255,10 @@ export function LessonDetailPageClient({ id }: { id: number }) {
         <LessonListeningPanel lesson={lesson} audioPath={detail.listeningInput?.audioPath ?? null} audioMetadata={detail.listeningInput?.audioMetadata ?? null} initialAttempt={detail.listeningAttempts[0]} onSave={saveListening} onComplete={setListeningSummary} onContinue={() => setActiveTab("roleplay")} />
       ) : null}
       {activeTab === "roleplay" ? (
-        <LessonRoleplay lesson={lesson} messages={chatMessages} input={chatInput} index={chatIndex} saving={roleplaySaving} error={roleplayError} setInput={setChatInput} onSend={sendChat} onContinue={() => setActiveTab("writing")} />
+        <>
+          <LessonRoleplay lesson={lesson} messages={chatMessages} input={chatInput} index={chatIndex} saving={roleplaySaving} error={roleplayError} setInput={setChatInput} onSend={sendChat} onContinue={() => setActiveTab("writing")} />
+          <LessonSpeakingPanel lessonId={id} source={source} promptRef={lesson.roleplay.turns[0]?.learner_goal ?? "Practice your roleplay response aloud."} />
+        </>
       ) : null}
       {activeTab === "writing" ? <LessonWritingPanel lesson={lesson} initialDraft={detail.writingSubmission?.draft} roleplayResponses={roleplayResponses} listeningSummary={listeningSummary} onSaveDraft={saveWritingDraft} onSaveFeedback={saveFeedback} /> : null}
       {activeTab === "review" ? <LessonReviewPanel drills={detail.retryDrills} onComplete={completeDrill} /> : null}
