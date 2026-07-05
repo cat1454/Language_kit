@@ -2,11 +2,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "@/src/db/client";
 import { modelOutputs, topics } from "@/src/db/schema";
 import {
+  completeRetryDrill,
+  getDashboardSummary,
   getDatasetExportRows,
+  getLessonPackDetail,
   listLessonPacks,
+  saveFeedback,
+  saveListeningAttempt,
   saveLessonPackSubmission
 } from "@/src/db/repository";
-import { validLessonPack } from "@/src/demo/lesson-pack-fixture";
+import { validFeedback, validLessonPack } from "@/src/demo/lesson-pack-fixture";
 
 const runDbTests = process.env.RUN_DB_TESTS === "1";
 
@@ -70,6 +75,51 @@ describe.skipIf(!runDbTests)("PostgreSQL repository integration", () => {
     expect(repairRows[0]).toMatchObject({
       broken_response: "{ bad json",
       rejection_reason: "invalid_json"
+    });
+  });
+
+  it("persists listening, feedback, retry completion, and dashboard progress", async () => {
+    const saved = await saveLessonPackSubmission({
+      prompt: "Generate lesson_pack.v1",
+      rawAiOutput: JSON.stringify(validLessonPack),
+      parsedJson: validLessonPack,
+      validatedJson: validLessonPack,
+      sourceMode: "manual_free_relay",
+      status: "accepted",
+      rejectionReason: null
+    });
+    const lessonPackId = saved.id as number;
+
+    const attempt = await saveListeningAttempt({
+      lessonPackId,
+      gistAnswers: ["To reschedule a meeting."],
+      detailAnswers: ["A scheduling conflict.", "Friday at 3."],
+      keyPhraseAnswers: ["Could we reschedule it?"],
+      replayCount: 1,
+      scoreGist: 1,
+      scoreDetail: 1,
+      scoreKeyPhrase: 1,
+      missedDetails: []
+    });
+    const feedback = await saveFeedback({
+      lessonPackId,
+      prompt: "Evaluate the learner attempt",
+      rawAiOutput: JSON.stringify(validFeedback),
+      feedback: validFeedback,
+      sourceMode: "manual_free_relay"
+    });
+    await completeRetryDrill(feedback.retryDrillId, "I would like to reschedule.");
+
+    const detail = await getLessonPackDetail(lessonPackId);
+    const dashboard = await getDashboardSummary();
+
+    expect(attempt?.listeningInputId).toEqual(expect.any(Number));
+    expect(detail?.listeningAttempts).toHaveLength(1);
+    expect(detail?.retryDrills.some((drill) => drill.completedAt)).toBe(true);
+    expect(dashboard).toMatchObject({
+      completedTopics: 1,
+      completedRetryDrills: 1,
+      repeatedErrorTypes: { naturalness: 1 }
     });
   });
 });

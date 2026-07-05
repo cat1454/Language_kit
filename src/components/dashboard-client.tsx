@@ -3,22 +3,64 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { DataSourceNotice } from "@/src/components/data-source-notice";
+import { isBackendUnavailable, requestJson } from "@/src/lib/api-client";
+import {
+  clearSessionDataSource,
+  getSessionDataSource,
+  setSessionDataSource,
+  type DashboardSummary,
+  type DataSource
+} from "@/src/lib/lesson-data";
 import { mockGetDashboardSummary } from "@/src/lib/mockStore";
 
 export function DashboardClient() {
-  const [summary, setSummary] = useState<{
-    completedTopics: number;
-    completedRetryDrills: number;
-    repeatedErrorTypes: Record<string, number>;
-  }>({
+  const [summary, setSummary] = useState<DashboardSummary>({
     completedTopics: 0,
     completedRetryDrills: 0,
     repeatedErrorTypes: {}
   });
+  const [source, setSource] = useState<DataSource | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setSummary(mockGetDashboardSummary());
+    void loadSummary();
   }, []);
+
+  async function loadSummary() {
+    setLoading(true);
+    setError("");
+    const pinnedSource = getSessionDataSource();
+    if (pinnedSource === "demo") {
+      setSummary(mockGetDashboardSummary());
+      setSource("demo");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await requestJson<{ summary: DashboardSummary }>("/api/dashboard");
+      setSummary(response.summary);
+      setSource("api");
+      setSessionDataSource("api");
+    } catch (caught) {
+      if (!pinnedSource && isBackendUnavailable(caught)) {
+        setSummary(mockGetDashboardSummary());
+        setSource("demo");
+        setSessionDataSource("demo");
+      } else {
+        setError(caught instanceof Error ? caught.message : "Failed to load dashboard.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function reconnect() {
+    clearSessionDataSource();
+    window.location.reload();
+  }
 
   const totalErrors = Object.values(summary.repeatedErrorTypes).reduce((a, b) => a + b, 0);
 
@@ -37,6 +79,7 @@ export function DashboardClient() {
 
   return (
     <main className="page">
+      <DataSourceNotice source={source} onReconnect={reconnect} />
       <div className="section-header" style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1>Progress Dashboard</h1>
@@ -47,9 +90,11 @@ export function DashboardClient() {
           <span>Back to Workspace</span>
         </Link>
       </div>
+      {loading ? <p className="status pending">Loading dashboard...</p> : null}
+      {error ? <p className="status rejected" role="alert">{error}</p> : null}
 
       {/* Bento Grid: Metrics with SVG Circle Visuals */}
-      <div className="metric-grid">
+      {!loading && !error ? <div className="metric-grid">
         <div className="metric">
           <div className="metric-info">
             <span>Completed Topics</span>
@@ -118,10 +163,10 @@ export function DashboardClient() {
             />
           </svg>
         </div>
-      </div>
+      </div> : null}
 
       {/* Bento Section: Error Distribution Visualizations */}
-      <div className="split">
+      {!loading && !error ? <div className="split">
         <div className="panel">
           <h2>Repeated error classifications</h2>
           {Object.entries(summary.repeatedErrorTypes).length === 0 ? (
@@ -164,7 +209,7 @@ export function DashboardClient() {
             </div>
           </div>
         </div>
-      </div>
+      </div> : null}
     </main>
   );
 }

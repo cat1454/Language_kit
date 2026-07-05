@@ -1,31 +1,14 @@
 "use client";
 
-import type { LessonPackV1, FeedbackV1, ErrorType } from "@/src/lib/contracts";
+import type { ErrorType, FeedbackV1, LessonPackV1 } from "@/src/lib/contracts";
+import type {
+  LessonDetail as MockLessonDetail,
+  LessonListItem as MockLessonListItem,
+  ListeningAttempt as MockListeningAttempt,
+  RetryDrill as MockRetryDrill
+} from "@/src/lib/lesson-data";
 
-export interface MockLessonListItem {
-  id: number;
-  status: string;
-  topic: string;
-  cefrLevel: string;
-  situation: string;
-  createdAt: string;
-}
-
-export interface MockListeningAttempt {
-  id: number;
-  lessonPackId: number;
-  gistAnswers: string[];
-  detailAnswers: string[];
-  keyPhraseAnswers: string[];
-  replayCount: number;
-  scoreGist: number;
-  scoreDetail: number;
-  scoreKeyPhrase: number;
-  missedDetails: string[];
-  createdAt: string;
-}
-
-export interface MockErrorLogItem {
+type MockErrorLogItem = {
   id: number;
   lessonPackId: number;
   type: ErrorType;
@@ -34,31 +17,9 @@ export interface MockErrorLogItem {
   whyItMatters: string;
   retryPriority: "low" | "medium" | "high";
   createdAt: string;
-}
+};
 
-export interface MockRetryDrill {
-  id: number;
-  lessonPackId: number;
-  instruction: string;
-  items: string[];
-  learnerResult?: string;
-  completedAt?: string;
-}
-
-export interface MockLessonDetail {
-  lessonPack: {
-    id: number;
-    status: string;
-    prompt: string;
-    rawAiOutput: string;
-    validatedJson: LessonPackV1;
-    createdAt: string;
-  };
-  lesson: LessonPackV1;
-  listeningAttempts: MockListeningAttempt[];
-  errorLogItems: MockErrorLogItem[];
-  retryDrills: MockRetryDrill[];
-}
+type StoredLessonDetail = MockLessonDetail & { errorLogItems: MockErrorLogItem[] };
 
 // Pre-populated default lessons
 const defaultLessonPack1: LessonPackV1 = {
@@ -351,7 +312,7 @@ const defaultLessonPack2: LessonPackV1 = {
   }
 };
 
-const defaultLessons: MockLessonDetail[] = [
+const defaultLessons: StoredLessonDetail[] = [
   {
     lessonPack: {
       id: 101,
@@ -420,7 +381,7 @@ function isClient() {
   return typeof window !== "undefined";
 }
 
-function getStoredData(): MockLessonDetail[] {
+function getStoredData(): StoredLessonDetail[] {
   if (!isClient()) return defaultLessons;
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (!raw) {
@@ -434,7 +395,7 @@ function getStoredData(): MockLessonDetail[] {
   }
 }
 
-function setStoredData(data: MockLessonDetail[]) {
+function setStoredData(data: StoredLessonDetail[]) {
   if (!isClient()) return;
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
 }
@@ -451,7 +412,7 @@ export function mockGetLessons(): MockLessonListItem[] {
   }));
 }
 
-export function mockGetLessonDetail(id: number): MockLessonDetail | null {
+export function mockGetLessonDetail(id: number): StoredLessonDetail | null {
   const data = getStoredData();
   return data.find((d) => d.lessonPack.id === id) || null;
 }
@@ -472,7 +433,7 @@ export function mockSaveLesson(
     items: drill.items
   }));
 
-  const newDetail: MockLessonDetail = {
+  const newDetail: StoredLessonDetail = {
     lessonPack: {
       id: nextId,
       status: "accepted",

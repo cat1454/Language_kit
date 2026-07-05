@@ -19,7 +19,14 @@ const feedbackSubmissionSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const requestParse = feedbackSubmissionSchema.safeParse(await request.json());
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+  }
+
+  const requestParse = feedbackSubmissionSchema.safeParse(body);
 
   if (!requestParse.success) {
     return NextResponse.json({ issues: requestParse.error.issues }, { status: 400 });
@@ -49,10 +56,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const saved = await saveFeedback({
-    ...requestParse.data,
-    feedback: feedbackParse.data
-  });
+  try {
+    const saved = await saveFeedback({
+      ...requestParse.data,
+      feedback: feedbackParse.data
+    });
 
-  return NextResponse.json({ status: "accepted", ...saved }, { status: 201 });
+    return NextResponse.json(
+      { status: "accepted", feedback: feedbackParse.data, ...saved },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Failed to save feedback", error);
+    return NextResponse.json(
+      { error: "Failed to save feedback." },
+      { status: 500 }
+    );
+  }
 }

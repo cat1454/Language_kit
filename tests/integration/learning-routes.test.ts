@@ -64,6 +64,17 @@ describe("GET /api/lesson-packs/:id", () => {
     expect(invalid.status).toBe(400);
     expect(missing.status).toBe(404);
   });
+
+  it("returns 500 when detail persistence fails", async () => {
+    repositoryMocks.getLessonPackDetail.mockRejectedValueOnce(new Error("db offline"));
+    const { GET } = await import("@/app/api/lesson-packs/[id]/route");
+    const response = await GET(new Request("http://localhost/api/lesson-packs/42"), {
+      params: Promise.resolve({ id: "42" })
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ error: "Failed to load lesson." });
+  });
 });
 
 describe("GET /api/dashboard", () => {
@@ -85,6 +96,15 @@ describe("GET /api/dashboard", () => {
         repeatedErrorTypes: { grammar: 3 }
       }
     });
+  });
+
+  it("returns 500 when dashboard persistence fails", async () => {
+    repositoryMocks.getDashboardSummary.mockRejectedValueOnce(new Error("db offline"));
+    const { GET } = await import("@/app/api/dashboard/route");
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
   });
 });
 
@@ -124,6 +144,22 @@ describe("POST /api/listening-attempts", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("rejects malformed JSON and normalizes repository failures", async () => {
+    const { POST } = await import("@/app/api/listening-attempts/route");
+    const malformed = await POST(new Request("http://localhost/api/listening-attempts", {
+      method: "POST",
+      body: "{ bad json"
+    }));
+    repositoryMocks.saveListeningAttempt.mockRejectedValueOnce(new Error("db offline"));
+    const failed = await POST(new Request("http://localhost/api/listening-attempts", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }));
+
+    expect(malformed.status).toBe(400);
+    expect(failed.status).toBe(500);
+  });
 });
 
 describe("POST /api/feedback", () => {
@@ -148,9 +184,54 @@ describe("POST /api/feedback", () => {
     expect(response.status).toBe(201);
     expect(body.feedback).toEqual(validFeedback);
   });
+
+  it("rejects invalid feedback and returns 500 for persistence failures", async () => {
+    const { POST } = await import("@/app/api/feedback/route");
+    const invalid = await POST(new Request("http://localhost/api/feedback", {
+      method: "POST",
+      body: JSON.stringify({
+        lessonPackId: 42,
+        prompt: "Evaluate",
+        rawAiOutput: "{}",
+        sourceMode: "manual_free_relay"
+      })
+    }));
+    repositoryMocks.saveFeedback.mockRejectedValueOnce(new Error("db offline"));
+    const failed = await POST(new Request("http://localhost/api/feedback", {
+      method: "POST",
+      body: JSON.stringify({
+        lessonPackId: 42,
+        prompt: "Evaluate",
+        rawAiOutput: JSON.stringify(validFeedback),
+        sourceMode: "manual_free_relay"
+      })
+    }));
+
+    expect(invalid.status).toBe(422);
+    expect(failed.status).toBe(500);
+  });
 });
 
 describe("POST /api/retry-drills/:id/complete", () => {
+  it("completes the drill through the /complete endpoint", async () => {
+    repositoryMocks.completeRetryDrill.mockResolvedValueOnce({
+      id: 9,
+      learnerResult: "Corrected answer",
+      completedAt: new Date("2026-07-05T00:00:00.000Z")
+    });
+    const { POST } = await import("@/app/api/retry-drills/[id]/complete/route");
+    const response = await POST(
+      new Request("http://localhost/api/retry-drills/9/complete", {
+        method: "POST",
+        body: JSON.stringify({ learnerResult: "Corrected answer" })
+      }),
+      { params: Promise.resolve({ id: "9" }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(repositoryMocks.completeRetryDrill).toHaveBeenCalledWith(9, "Corrected answer");
+  });
+
   it("returns 404 instead of silently succeeding for a missing drill", async () => {
     repositoryMocks.completeRetryDrill.mockResolvedValueOnce(undefined);
     const { POST } = await import("@/app/api/retry-drills/[id]/complete/route");
@@ -163,5 +244,27 @@ describe("POST /api/retry-drills/:id/complete", () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it("returns 400 for malformed JSON and 500 for repository failures", async () => {
+    const { POST } = await import("@/app/api/retry-drills/[id]/complete/route");
+    const malformed = await POST(
+      new Request("http://localhost/api/retry-drills/9/complete", {
+        method: "POST",
+        body: "{ bad json"
+      }),
+      { params: Promise.resolve({ id: "9" }) }
+    );
+    repositoryMocks.completeRetryDrill.mockRejectedValueOnce(new Error("db offline"));
+    const failed = await POST(
+      new Request("http://localhost/api/retry-drills/9/complete", {
+        method: "POST",
+        body: JSON.stringify({ learnerResult: "Corrected answer" })
+      }),
+      { params: Promise.resolve({ id: "9" }) }
+    );
+
+    expect(malformed.status).toBe(400);
+    expect(failed.status).toBe(500);
   });
 });

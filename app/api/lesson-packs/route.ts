@@ -23,8 +23,9 @@ export async function GET() {
     const lessons = await listLessonPacks();
     return NextResponse.json({ lessons });
   } catch (error) {
+    console.error("Failed to list lesson packs", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to list lessons." },
+      { error: "Failed to list lessons." },
       { status: 500 }
     );
   }
@@ -51,7 +52,8 @@ export async function POST(request: Request) {
   }
 
   const submission = requestParse.data;
-  const jsonParse = parseAiJson(submission.rawAiOutput);
+  try {
+    const jsonParse = parseAiJson(submission.rawAiOutput);
 
   if (!jsonParse.success) {
     const saved = await saveLessonPackSubmission({
@@ -103,12 +105,16 @@ export async function POST(request: Request) {
     rejectionReason: null
   });
 
-  return NextResponse.json(
-    {
-      ...saved,
-      status: "accepted",
-      lessonPack: validation.data
-    },
-    { status: 201 }
-  );
+    return NextResponse.json(
+      {
+        ...saved,
+        status: "accepted",
+        lessonPack: validation.data
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Failed to save lesson pack submission", error);
+    return NextResponse.json({ error: "Failed to save lesson." }, { status: 500 });
+  }
 }

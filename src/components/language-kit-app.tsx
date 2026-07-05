@@ -13,11 +13,17 @@ import {
 } from "lucide-react";
 import { buildLessonPackPrompt, buildRepairPrompt } from "@/src/lib/prompts";
 import { parseAiJson, validateLessonPack } from "@/src/lib/contracts";
+import { DataSourceNotice } from "@/src/components/data-source-notice";
+import { SavedLessonList } from "@/src/components/saved-lesson-list";
+import { ApiError, requestJson } from "@/src/lib/api-client";
 import {
-  mockGetLessons,
-  mockSaveLesson,
-  type MockLessonListItem
-} from "@/src/lib/mockStore";
+  clearSessionDataSource,
+  getSessionDataSource,
+  setSessionDataSource,
+  type DataSource,
+  type LessonListItem
+} from "@/src/lib/lesson-data";
+import { mockGetLessons, mockSaveLesson } from "@/src/lib/mockStore";
 
 const defaultForm = {
   targetLanguage: "English",
@@ -71,15 +77,51 @@ export function LanguageKitApp() {
     message: string;
   } | null>(null);
   const [repairPrompt, setRepairPrompt] = useState("");
-  const [lessons, setLessons] = useState<MockLessonListItem[]>([]);
+  const [lessons, setLessons] = useState<LessonListItem[]>([]);
+  const [dataSource, setDataSource] = useState<DataSource | null>(null);
+  const [lessonsLoading, setLessonsLoading] = useState(true);
+  const [lessonsError, setLessonsError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
-  // Load initial lessons on mount
   useEffect(() => {
-    setLessons(mockGetLessons());
+    void loadLessons();
   }, []);
+
+  async function loadLessons() {
+    setLessonsLoading(true);
+    setLessonsError("");
+    const pinnedSource = getSessionDataSource();
+    if (pinnedSource === "demo") {
+      setLessons(mockGetLessons());
+      setDataSource("demo");
+      setLessonsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await requestJson<{ lessons: LessonListItem[] }>("/api/lesson-packs");
+      setLessons(response.lessons);
+      setDataSource("api");
+      setSessionDataSource("api");
+    } catch (error) {
+      if (!pinnedSource && (!(error instanceof ApiError) || error.status >= 500)) {
+        setLessons(mockGetLessons());
+        setDataSource("demo");
+        setSessionDataSource("demo");
+      } else {
+        setLessonsError(error instanceof Error ? error.message : "Failed to load lessons.");
+      }
+    } finally {
+      setLessonsLoading(false);
+    }
+  }
+
+  function reconnect() {
+    clearSessionDataSource();
+    window.location.reload();
+  }
 
   const sessionMinutes = useMemo(
     () => Number(form.sessionMinutes) || 30,
@@ -219,9 +261,19 @@ export function LanguageKitApp() {
     setStatus(null);
     setRepairPrompt("");
 
+    if (dataSource === "demo") {
+      saveDemoLesson();
+      setIsSaving(false);
+      return;
+    }
+    if (dataSource !== "api") {
+      setStatus({ kind: "rejected", message: "Lesson data source is not ready." });
+      setIsSaving(false);
+      return;
+    }
+
     try {
-      // First try to hit local backend API
-      const response = await fetch("/api/lesson-packs", {
+      await requestJson("/api/lesson-packs", {
         method: "POST",
         headers: {
           "content-type": "application/json"
@@ -235,80 +287,49 @@ export function LanguageKitApp() {
           sessionMinutes
         })
       });
-      const data = await response.json();
-
-      if (!response.ok) {
-        const errors = Array.isArray(data.errors) ? data.errors : [data.error];
-        setStatus({
-          kind: "rejected",
-          message: data.rejectionReason ?? "rejected"
-        });
-        setRepairPrompt(
-          buildRepairPrompt({
-            brokenResponse: rawAiOutput,
-            validationErrors: errors.filter(Boolean),
-            expectedSchemaName: "lesson_pack.v1"
-          })
-        );
-        return;
-      }
-
-      // If successful, save local mock store too so both match
-      const parsed = parseAiJson(rawAiOutput);
-      if (parsed.success) {
-        const validated = validateLessonPack(parsed.data);
-        if (validated.success) {
-          mockSaveLesson(prompt, rawAiOutput, validated.data);
-        }
-      }
-
       setStatus({ kind: "accepted", message: "accepted" });
-      // Reload from mock store to capture the full list properly
-      setLessons(mockGetLessons());
+      const response = await requestJson<{ lessons: LessonListItem[] }>("/api/lesson-packs");
+      setLessons(response.lessons);
     } catch (error) {
-      // BACKEND FALLBACK: Parse and Save directly on the client if backend fetch fails
-      const parsed = parseAiJson(rawAiOutput);
-      if (!parsed.success) {
-        setStatus({
-          kind: "rejected",
-          message: parsed.rejectionReason ?? "invalid_json"
-        });
-        setRepairPrompt(
-          buildRepairPrompt({
-            brokenResponse: rawAiOutput,
-            validationErrors: parsed.errors,
-            expectedSchemaName: "lesson_pack.v1"
-          })
-        );
-        setIsSaving(false);
-        return;
+      if (error instanceof ApiError && error.payload && typeof error.payload === "object") {
+        const payload = error.payload as { rejectionReason?: string; errors?: string[]; error?: string };
+        setStatus({ kind: "rejected", message: payload.rejectionReason ?? payload.error ?? error.message });
+        setRepairPrompt(buildRepairPrompt({
+          brokenResponse: rawAiOutput,
+          validationErrors: payload.errors ?? [error.message],
+          expectedSchemaName: "lesson_pack.v1"
+        }));
+      } else {
+        setStatus({ kind: "rejected", message: error instanceof Error ? error.message : "Failed to save lesson." });
       }
-
-      const validated = validateLessonPack(parsed.data);
-      if (!validated.success) {
-        setStatus({
-          kind: "rejected",
-          message: validated.rejectionReason ?? "missing_required_section"
-        });
-        setRepairPrompt(
-          buildRepairPrompt({
-            brokenResponse: rawAiOutput,
-            validationErrors: validated.errors,
-            expectedSchemaName: "lesson_pack.v1"
-          })
-        );
-        setIsSaving(false);
-        return;
-      }
-
-      // Save to local Mock Store
-      const savedLesson = mockSaveLesson(prompt, rawAiOutput, validated.data);
-
-      setStatus({ kind: "accepted", message: "accepted" });
-      setLessons((current) => [savedLesson, ...current]);
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function saveDemoLesson() {
+    const parsed = parseAiJson(rawAiOutput);
+    if (!parsed.success) {
+      rejectLocally(parsed.rejectionReason ?? "invalid_json", parsed.errors);
+      return;
+    }
+    const validated = validateLessonPack(parsed.data);
+    if (!validated.success) {
+      rejectLocally(validated.rejectionReason ?? "missing_required_section", validated.errors);
+      return;
+    }
+    mockSaveLesson(prompt, rawAiOutput, validated.data);
+    setStatus({ kind: "accepted", message: "accepted in offline demo mode" });
+    setLessons(mockGetLessons());
+  }
+
+  function rejectLocally(message: string, errors: string[]) {
+    setStatus({ kind: "rejected", message });
+    setRepairPrompt(buildRepairPrompt({
+      brokenResponse: rawAiOutput,
+      validationErrors: errors,
+      expectedSchemaName: "lesson_pack.v1"
+    }));
   }
 
   return (
@@ -317,6 +338,7 @@ export function LanguageKitApp() {
         <h1>Practice Workspace</h1>
         <p>Dynamic listening, roleplay and writing simulator</p>
       </div>
+      <DataSourceNotice source={dataSource} onReconnect={reconnect} />
 
       <div className="workspace">
         {/* Left Form: Topic Setup */}
@@ -450,7 +472,7 @@ export function LanguageKitApp() {
           </div>
 
           <div className="field">
-            <div style={{ display: "flex", justifyContent: "between", alignItems: "center", marginBottom: "6px", flexWrap: "wrap", gap: "8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", flexWrap: "wrap", gap: "8px" }}>
               <label htmlFor="rawAiOutput">AI JSON response</label>
 
               <div style={{ marginLeft: "auto", display: "flex", gap: "6px" }}>
@@ -501,7 +523,7 @@ export function LanguageKitApp() {
             <button
               type="button"
               className="icon-btn"
-              disabled={!prompt || !rawAiOutput || isSaving || isSimulating}
+              disabled={!prompt || !rawAiOutput || isSaving || isSimulating || !dataSource}
               onClick={validateAndSave}
             >
               <Check size={16} />
@@ -534,41 +556,7 @@ export function LanguageKitApp() {
         </section>
       </div>
 
-      {/* Bento Grid: Saved Lessons */}
-      <section className="panel" style={{ marginTop: "28px" }}>
-        <h2>Available Practice Lessons</h2>
-        {lessons.length === 0 ? (
-          <p className="muted">No lessons generated yet. Create one above to begin.</p>
-        ) : (
-          <div className="item-grid">
-            {lessons.map((lesson) => (
-              <Link
-                className="item-card"
-                href={`/lessons/${lesson.id}`}
-                key={lesson.id}
-              >
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
-                    <span className={`badge level-${lesson.cefrLevel.toLowerCase()}`}>{lesson.cefrLevel}</span>
-                    <span style={{ fontSize: "11px", color: "var(--muted)" }}>
-                      {new Date(lesson.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <strong>{lesson.topic}</strong>
-                  <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "6px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {lesson.situation}
-                  </p>
-                </div>
-                <div className="card-meta">
-                  <span style={{ color: "var(--accent-strong)", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                    Practice →
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      <SavedLessonList lessons={lessons} loading={lessonsLoading} error={lessonsError} />
     </main>
   );
 }

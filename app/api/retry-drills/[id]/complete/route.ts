@@ -14,12 +14,29 @@ export async function POST(
 ) {
   const params = await context.params;
   const id = Number(params.id);
-  const parsed = completeSchema.safeParse(await request.json());
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+  }
+  const parsed = completeSchema.safeParse(body);
 
   if (!Number.isInteger(id) || id <= 0 || !parsed.success) {
     return NextResponse.json({ error: "Invalid retry drill completion." }, { status: 400 });
   }
 
-  const drill = await completeRetryDrill(id, parsed.data.learnerResult);
-  return NextResponse.json({ drill });
+  try {
+    const drill = await completeRetryDrill(id, parsed.data.learnerResult);
+    if (!drill) {
+      return NextResponse.json({ error: "Retry drill not found." }, { status: 404 });
+    }
+    return NextResponse.json({ drill });
+  } catch (error) {
+    console.error("Failed to complete retry drill", error);
+    return NextResponse.json(
+      { error: "Failed to complete retry drill." },
+      { status: 500 }
+    );
+  }
 }

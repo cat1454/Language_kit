@@ -6,7 +6,6 @@ export const runtime = "nodejs";
 
 const listeningAttemptSchema = z.object({
   lessonPackId: z.number().int().positive(),
-  listeningInputId: z.number().int().positive(),
   gistAnswers: z.array(z.string()),
   detailAnswers: z.array(z.string()),
   keyPhraseAnswers: z.array(z.string()),
@@ -18,12 +17,33 @@ const listeningAttemptSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const parsed = listeningAttemptSchema.safeParse(await request.json());
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+  }
+
+  const parsed = listeningAttemptSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json({ issues: parsed.error.issues }, { status: 400 });
   }
 
-  const attempt = await saveListeningAttempt(parsed.data);
-  return NextResponse.json({ attempt }, { status: 201 });
+  try {
+    const attempt = await saveListeningAttempt(parsed.data);
+    if (!attempt) {
+      return NextResponse.json(
+        { error: "Lesson listening input not found." },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ attempt }, { status: 201 });
+  } catch (error) {
+    console.error("Failed to save listening attempt", error);
+    return NextResponse.json(
+      { error: "Failed to save listening attempt." },
+      { status: 500 }
+    );
+  }
 }

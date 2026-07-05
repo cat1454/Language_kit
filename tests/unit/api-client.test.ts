@@ -31,7 +31,9 @@ describe("API client", () => {
       })
     ));
 
-    const error = await requestJson("/api/example").catch((caught) => caught);
+    const error: unknown = await requestJson("/api/example").catch(
+      (caught: unknown) => caught
+    );
 
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 400, message: "Invalid request." });
@@ -41,5 +43,20 @@ describe("API client", () => {
   it("classifies 5xx and network failures as backend unavailable", async () => {
     expect(isBackendUnavailable(new ApiError(503, "Unavailable"))).toBe(true);
     expect(isBackendUnavailable(new TypeError("fetch failed"))).toBe(true);
+  });
+
+  it("preserves successful plain-text responses", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ready", { status: 200 })));
+
+    await expect(requestJson<string>("/api/example")).resolves.toBe("ready");
+  });
+
+  it("falls back to the HTTP status when an error response is empty", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 502 })));
+
+    await expect(requestJson("/api/example")).rejects.toMatchObject({
+      status: 502,
+      message: "Request failed with status 502."
+    });
   });
 });

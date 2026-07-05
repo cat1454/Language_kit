@@ -67,14 +67,35 @@ Steps:
 Acceptance:
 
 - listening attempt is saved
+- key phrase answers come from learner input rather than prefilled answer data
+- transcript stays locked until the active data source confirms the attempt was saved
 - roleplay response is saved
 - writing submission is saved
 - feedback scores are saved
 - error log includes evidence, correction, reason, and retry priority
 - retry drill is linked to the source error
 - dashboard reflects completed topic, error type, and retry completion
+- API errors are visible; a 4xx/5xx response never produces a silent success state
+- an API-backed session never writes failed mutations into the browser demo store
 
-## Scenario 4: Dataset Export
+## Scenario 4: PostgreSQL-First Reads And Offline Demo
+
+Steps:
+
+1. Save a lesson while the API is available.
+2. Reload the home page, lesson detail, and dashboard in the same session.
+3. Confirm all three surfaces use the PostgreSQL record and server-generated ID.
+4. In a fresh session, make the initial list request fail with a network error or 5xx.
+5. Confirm the UI visibly enters offline demo mode and remains on that source.
+
+Acceptance:
+
+- successful API saves are not mirrored into a second local lesson
+- 4xx responses show an error without enabling demo mode
+- initial network/5xx failure enables a visible browser-only fallback
+- Retry backend clears the pinned source and attempts a fresh connection
+
+## Scenario 5: Dataset Export
 
 Steps:
 

@@ -63,7 +63,7 @@ describe("POST /api/lesson-packs", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("db offline");
+    expect(data.error).toBe("Failed to list lessons.");
   });
 
   it("rejects non-JSON request bodies", async () => {

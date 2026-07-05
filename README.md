@@ -91,12 +91,15 @@ Không thêm cờ `-v` nếu muốn giữ lại dữ liệu PostgreSQL.
 
 ## Lưu trữ dữ liệu hiện tại
 
-Prototype đang có hai lớp lưu trữ:
+PostgreSQL là nguồn dữ liệu chính cho lesson list, lesson detail, attempt, feedback,
+retry drill, dashboard và export. UI không còn ghi song song một bản lesson khác vào
+`localStorage` sau khi API lưu thành công.
 
-- Các API route lưu lesson pack, attempt, feedback, error và retry drill vào PostgreSQL.
-- Giao diện demo dùng `localStorage` với dữ liệu mẫu để có thể trải nghiệm nhanh và fallback khi backend không khả dụng.
-
-Khi API hoạt động, lesson hợp lệ được gửi tới PostgreSQL và đồng thời phản chiếu vào browser store. Hai nguồn này chưa phải một mô hình đồng bộ hoàn chỉnh, vì vậy có thể lệch nhau trong quá trình phát triển. Xóa key `language_kit_mock_db` trong local storage của trình duyệt để khôi phục dữ liệu demo mặc định.
+Nếu lần kết nối đầu tiên trong một browser session gặp lỗi mạng hoặc lỗi server 5xx,
+ứng dụng chuyển sang offline demo mode và hiện cảnh báo rõ ràng. Nguồn dữ liệu được
+giữ cố định cho cả session: API mode không ghi chéo sang local store khi một mutation
+thất bại, còn demo mode chỉ lưu trong browser. Chọn **Retry backend** để bắt đầu một
+session kết nối mới. Lỗi request 4xx luôn được hiển thị và không kích hoạt fallback.
 
 ## Lệnh thường dùng
 
@@ -152,8 +155,10 @@ pnpm vitest run tests/integration/repository-postgres.test.ts
 | --- | --- | --- |
 | `GET` | `/api/health` | Kiểm tra service và cấu hình database |
 | `GET`, `POST` | `/api/lesson-packs` | Liệt kê hoặc kiểm tra và lưu lesson pack |
+| `GET` | `/api/lesson-packs/:id` | Đọc lesson detail và lịch sử luyện tập |
+| `GET` | `/api/dashboard` | Đọc tổng hợp tiến độ từ PostgreSQL |
 | `POST` | `/api/listening-attempts` | Lưu kết quả luyện nghe |
-| `POST` | `/api/feedback` | Kiểm tra và lưu feedback có cấu trúc |
+| `POST` | `/api/feedback` | Kiểm tra, lưu và trả lại feedback có cấu trúc |
 | `POST` | `/api/retry-drills/:id/complete` | Hoàn thành retry drill |
 | `GET` | `/api/exports/:kind` | Tải dataset JSONL |
 
@@ -201,6 +206,6 @@ Hai tài liệu nền tảng của dự án là:
 - Không tự động điều khiển hoặc scrape các website AI miễn phí.
 - Chưa có authentication hay multi-user isolation.
 - Roleplay hiện là text; chưa có ASR, TTS hoặc chấm phát âm.
-- Feedback và một phần scoring trong UI vẫn mang tính mô phỏng.
-- Browser demo store và PostgreSQL chưa dùng chung một nguồn đọc duy nhất.
+- Listening dùng heuristic so khớp từ khóa; đây chưa phải chấm ngữ nghĩa bằng AI.
+- Browser demo store là fallback tách biệt theo session và không đồng bộ ngược lên PostgreSQL.
 - Chưa có fine-tuning; JSONL chỉ chuẩn bị dữ liệu cho phân tích hoặc huấn luyện về sau.

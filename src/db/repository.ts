@@ -17,12 +17,17 @@ import {
   type DatasetExportKind
 } from "@/src/lib/exports";
 import type {
-  FeedbackV1,
   LessonPackStatus,
   LessonPackV1,
   RejectionReason,
   SourceMode
 } from "@/src/lib/contracts";
+
+export {
+  completeRetryDrill,
+  saveFeedback,
+  saveListeningAttempt
+} from "@/src/db/practice-repository";
 
 export type LessonPackSubmission = {
   prompt: string;
@@ -218,98 +223,6 @@ export async function getLessonPackDetail(id: number) {
     roleplayTurns: savedRoleplayTurns,
     retryDrills: savedRetryDrills
   };
-}
-
-export async function saveListeningAttempt(input: {
-  lessonPackId: number;
-  listeningInputId: number;
-  gistAnswers: string[];
-  detailAnswers: string[];
-  keyPhraseAnswers: string[];
-  replayCount: number;
-  scoreGist: number;
-  scoreDetail: number;
-  scoreKeyPhrase: number;
-  missedDetails: string[];
-}) {
-  const db = getDb();
-  const [attempt] = await db.insert(listeningAttempts).values(input).returning();
-  return attempt;
-}
-
-export async function saveFeedback(input: {
-  lessonPackId: number;
-  prompt: string;
-  rawAiOutput: string;
-  feedback: FeedbackV1;
-  sourceMode: SourceMode;
-  providerOrSite?: string | null;
-  modelName?: string | null;
-}) {
-  const db = getDb();
-
-  return db.transaction(async (tx) => {
-    const [output] = await tx
-      .insert(modelOutputs)
-      .values({
-        taskType: "feedback_scoring",
-        sourceMode: input.sourceMode,
-        providerOrSite: input.providerOrSite ?? null,
-        modelName: input.modelName ?? null,
-        prompt: input.prompt,
-        rawResponse: input.rawAiOutput,
-        parsedJson: input.feedback,
-        accepted: true,
-        rejectionReason: null
-      })
-      .returning();
-
-    const insertedErrors = await tx
-      .insert(errorLog)
-      .values(
-        input.feedback.error_log_items.map((item) => ({
-          lessonPackId: input.lessonPackId,
-          sourceType: "feedback" as const,
-          errorType: item.type,
-          evidence: item.evidence,
-          correction: item.correction,
-          whyItMatters: item.why_it_matters,
-          retryPriority: item.retry_priority
-        }))
-      )
-      .returning();
-
-    const firstError = insertedErrors[0];
-    const [retryDrill] = await tx
-      .insert(retryDrills)
-      .values({
-        lessonPackId: input.lessonPackId,
-        errorLogId: firstError?.id ?? null,
-        instruction: input.feedback.retry_drill.instruction,
-        itemsJson: input.feedback.retry_drill.items
-      })
-      .returning();
-
-    return {
-      modelOutputId: output.id,
-      errorCount: insertedErrors.length,
-      retryDrillId: retryDrill.id
-    };
-  });
-}
-
-export async function completeRetryDrill(id: number, learnerResult: string) {
-  const db = getDb();
-  const [drill] = await db
-    .update(retryDrills)
-    .set({
-      learnerResult,
-      completedAt: new Date()
-    })
-    .where(eq(retryDrills.id, id))
-    .returning();
-
-  return drill;
 }
 
 export async function getDashboardSummary() {
