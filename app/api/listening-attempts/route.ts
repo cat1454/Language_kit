@@ -27,7 +27,10 @@ export async function POST(request: Request) {
   const parsed = listeningAttemptSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ issues: parsed.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid listening attempt payload.", issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
 
   try {

@@ -165,8 +165,7 @@ export function DashboardClient() {
         </div>
       </div> : null}
 
-      {/* Bento Section: Error Distribution Visualizations */}
-      {!loading && !error ? <div className="split">
+      {!loading && !error ? (
         <div className="panel">
           <h2>Repeated error classifications</h2>
           {Object.entries(summary.repeatedErrorTypes).length === 0 ? (
@@ -191,25 +190,7 @@ export function DashboardClient() {
             </div>
           )}
         </div>
-
-        <div className="panel danger-zone">
-          <h2>Review focus priority</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px", background: "rgba(239, 68, 68, 0.03)", border: "1px solid rgba(239, 68, 68, 0.1)", borderRadius: "8px" }}>
-              <span>High priority drills</span>
-              <strong style={{ color: "var(--danger-strong)" }}>1</strong>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px", background: "rgba(245, 158, 11, 0.03)", border: "1px solid rgba(245, 158, 11, 0.1)", borderRadius: "8px" }}>
-              <span>Medium priority drills</span>
-              <strong style={{ color: "var(--warning)" }}>0</strong>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px", background: "rgba(16, 185, 129, 0.03)", border: "1px solid rgba(16, 185, 129, 0.1)", borderRadius: "8px" }}>
-              <span>Completed review items</span>
-              <strong style={{ color: "var(--accent-strong)" }}>{summary.completedRetryDrills}</strong>
-            </div>
-          </div>
-        </div>
-      </div> : null}
+      ) : null}
     </main>
   );
 }

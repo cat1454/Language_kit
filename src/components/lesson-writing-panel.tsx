@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { ClipboardCheck, Copy } from "lucide-react";
 import type { FeedbackV1, LessonPackV1 } from "@/src/lib/contracts";
-import { parseAiJson, validateFeedback } from "@/src/lib/contracts";
+import { validateFeedback } from "@/src/lib/contracts";
+import { parseManualFeedbackJson } from "@/src/lib/manual-feedback-json";
 import { buildFeedbackPrompt, buildRepairPrompt } from "@/src/lib/prompts";
 import { calculateWritingReadinessScore } from "@/src/lib/scoring";
 
@@ -70,7 +71,7 @@ export function LessonWritingPanel({
   }
 
   async function validateAndSave() {
-    const json = parseAiJson(rawFeedback);
+    const json = parseManualFeedbackJson(rawFeedback);
     if (!json.success) {
       rejectFeedback(json.errors, json.rejectionReason ?? "invalid_json");
       return;

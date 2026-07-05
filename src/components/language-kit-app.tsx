@@ -15,7 +15,7 @@ import { buildLessonPackPrompt, buildRepairPrompt } from "@/src/lib/prompts";
 import { parseAiJson, validateLessonPack } from "@/src/lib/contracts";
 import { DataSourceNotice } from "@/src/components/data-source-notice";
 import { SavedLessonList } from "@/src/components/saved-lesson-list";
-import { ApiError, requestJson } from "@/src/lib/api-client";
+import { ApiError, isBackendUnavailable, requestJson } from "@/src/lib/api-client";
 import {
   clearSessionDataSource,
   getSessionDataSource,
@@ -106,7 +106,7 @@ export function LanguageKitApp() {
       setDataSource("api");
       setSessionDataSource("api");
     } catch (error) {
-      if (!pinnedSource && (!(error instanceof ApiError) || error.status >= 500)) {
+      if (!pinnedSource && isBackendUnavailable(error)) {
         setLessons(mockGetLessons());
         setDataSource("demo");
         setSessionDataSource("demo");

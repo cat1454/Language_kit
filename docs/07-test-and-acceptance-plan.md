@@ -67,11 +67,16 @@ Steps:
 Acceptance:
 
 - listening attempt is saved
+- listening API payload contains `lessonPackId`, three section scores, replay
+  count, learner answers, and `missedDetails`; the server derives
+  `listeningInputId`
+- `scoreOverall` and transcript unlock are UI-derived state, not persisted
 - key phrase answers come from learner input rather than prefilled answer data
 - transcript stays locked until the active data source confirms the attempt was saved
 - roleplay response is saved
 - writing submission is saved
-- feedback scores are saved
+- feedback scores are saved only after manual relay JSON passes validation; one
+  whole-response code fence is allowed for feedback only
 - error log includes evidence, correction, reason, and retry priority
 - retry drill is linked to the source error
 - dashboard reflects completed topic, error type, and retry completion

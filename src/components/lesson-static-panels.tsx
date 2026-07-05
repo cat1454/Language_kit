@@ -9,8 +9,9 @@ import {
   Send,
   Volume2
 } from "lucide-react";
+import { DataSourceNotice } from "@/src/components/data-source-notice";
 import type { LessonPackV1 } from "@/src/lib/contracts";
-import type { ListeningAttempt } from "@/src/lib/lesson-data";
+import type { DataSource, ListeningAttempt } from "@/src/lib/lesson-data";
 
 export type LessonTab = "warmup" | "listening" | "roleplay" | "writing" | "review";
 export type ChatMessage = { sender: "ai" | "learner"; text: string };
@@ -143,19 +144,26 @@ export function LessonRoleplay({
 export function PageMessage({
   message,
   rejected = false,
-  onRetry
+  onRetry,
+  source = null,
+  onReconnect
 }: {
   message: string;
   rejected?: boolean;
   onRetry?: () => void;
+  source?: DataSource | null;
+  onReconnect?: () => void;
 }) {
   return (
     <main className="page">
+      <DataSourceNotice source={source} onReconnect={onReconnect ?? noop} />
       <p className={`status ${rejected ? "rejected" : "pending"}`}>{message}</p>
       {onRetry ? <button type="button" onClick={onRetry}>Retry</button> : null}
     </main>
   );
 }
+
+function noop() {}
 
 export function summaryFromAttempt(attempt?: ListeningAttempt) {
   if (!attempt) return "";
