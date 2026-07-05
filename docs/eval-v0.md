@@ -34,3 +34,15 @@ need a new dependency.
 - No TTS/STT was added.
 - No third-party AI website automation was added.
 - No `lesson_pack.v1` or `feedback.v1` contract change was added.
+
+## Calibration Notes
+
+Prompt 7.5 reviewed `eval/dogfood_sessions/2026-07-05-reschedule-meeting.md`.
+The session recorded successful lesson prompt generation, accepted lesson JSON,
+completed listening checks, preserved transcript gating, saved roleplay and
+writing outputs, accepted feedback JSON, completed a retry drill, and inspected
+JSONL exports.
+
+No eval rows were added. The log did not include raw malformed JSON, a concrete
+contract rejection, a named export shape gap, or a suggested row ID/reason that
+would justify a deterministic model-free calibration row.
