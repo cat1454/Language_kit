@@ -14,12 +14,14 @@ type AttemptInput = Omit<ListeningAttempt, "id" | "lessonPackId" | "createdAt">;
 
 export function LessonListeningPanel({
   lesson,
+  audioPath,
   initialAttempt,
   onSave,
   onComplete,
   onContinue
 }: {
   lesson: LessonPackV1;
+  audioPath?: string | null;
   initialAttempt?: ListeningAttempt;
   onSave: (attempt: AttemptInput) => Promise<void>;
   onComplete: (summary: string) => void;
@@ -46,9 +48,10 @@ export function LessonListeningPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasRealAudio = Boolean(audioPath);
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (hasRealAudio || !isPlaying) return;
     timer.current = setInterval(() => {
       setSeconds((current) => {
         if (current >= lesson.listening_input.duration_seconds - 1) {
@@ -61,7 +64,7 @@ export function LessonListeningPanel({
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [isPlaying, lesson.listening_input.duration_seconds]);
+  }, [hasRealAudio, isPlaying, lesson.listening_input.duration_seconds]);
 
   function togglePlay() {
     if (!isPlaying && seconds >= lesson.listening_input.duration_seconds) {
@@ -132,22 +135,48 @@ export function LessonListeningPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div className="audio-player">
-        <div className="audio-controls">
-          <button type="button" className="play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
-            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-          </button>
-          <div className="waveform" aria-hidden="true">
-            {Array.from({ length: 30 }, (_, index) => (
-              <div className={`wave-bar ${isPlaying ? "active" : ""}`} key={index} />
-            ))}
+      {hasRealAudio ? (
+        <div className="audio-player">
+          <audio
+            className="real-audio"
+            controls
+            data-testid="lesson-audio-player"
+            onLoadedMetadata={(event) => {
+              event.currentTarget.playbackRate = 1;
+            }}
+            onRateChange={(event) => {
+              if (event.currentTarget.playbackRate !== 1) {
+                event.currentTarget.playbackRate = 1;
+              }
+            }}
+            onTimeUpdate={(event) => setSeconds(Math.floor(event.currentTarget.currentTime))}
+            preload="metadata"
+            src={audioPath ?? undefined}
+          />
+          <div className="audio-meta">
+            <span>{lesson.listening_input.recommended_voice} · {lesson.listening_input.accent}</span>
+            <span>{formatTime(seconds)} / {formatTime(lesson.listening_input.duration_seconds)}</span>
           </div>
         </div>
-        <div className="audio-meta">
-          <span>{lesson.listening_input.recommended_voice} · {lesson.listening_input.accent}</span>
-          <span>{formatTime(seconds)} / {formatTime(lesson.listening_input.duration_seconds)}</span>
+      ) : (
+        <div className="audio-player" data-testid="demo-listening-player">
+          <p className="status pending">No lesson audio yet. Using demo listening timer.</p>
+          <div className="audio-controls">
+            <button type="button" className="play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </button>
+            <div className="waveform" aria-hidden="true">
+              {Array.from({ length: 30 }, (_, index) => (
+                <div className={`wave-bar ${isPlaying ? "active" : ""}`} key={index} />
+              ))}
+            </div>
+          </div>
+          <div className="audio-meta">
+            <span>{lesson.listening_input.recommended_voice} · {lesson.listening_input.accent}</span>
+            <span>{formatTime(seconds)} / {formatTime(lesson.listening_input.duration_seconds)}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <QuestionGroup title="Gist comprehension" questions={lesson.while_listening.gist_questions} values={gistInputs} setValues={setGistInputs} checked={checked} />
       <QuestionGroup title="Detail comprehension" questions={lesson.while_listening.detail_questions} values={detailInputs} setValues={setDetailInputs} checked={checked} />

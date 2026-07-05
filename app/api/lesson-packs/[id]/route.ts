@@ -32,6 +32,10 @@ export async function GET(
         },
         lesson: result.lesson,
         listeningInputId: result.listeningInput.id,
+        listeningInput: {
+          id: result.listeningInput.id,
+          audioPath: result.listeningInput.audioPath ?? null
+        },
         listeningAttempts: result.listeningAttempts.map((attempt) => ({
           id: attempt.id,
           lessonPackId: attempt.lessonPackId,

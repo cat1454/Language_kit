@@ -63,6 +63,10 @@ export type LessonDetail = {
   };
   lesson: LessonPackV1;
   listeningInputId?: number;
+  listeningInput?: {
+    id: number;
+    audioPath: string | null;
+  };
   listeningAttempts: ListeningAttempt[];
   roleplayTurns?: RoleplayTurn[];
   writingSubmission?: WritingSubmission | null;

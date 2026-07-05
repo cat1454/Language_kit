@@ -251,7 +251,7 @@ export function LessonDetailPageClient({ id }: { id: number }) {
       <LessonTabBar active={activeTab} onChange={setActiveTab} />
       {activeTab === "warmup" ? <LessonWarmup lesson={lesson} onContinue={() => setActiveTab("listening")} /> : null}
       {activeTab === "listening" ? (
-        <LessonListeningPanel lesson={lesson} initialAttempt={detail.listeningAttempts[0]} onSave={saveListening} onComplete={setListeningSummary} onContinue={() => setActiveTab("roleplay")} />
+        <LessonListeningPanel lesson={lesson} audioPath={detail.listeningInput?.audioPath ?? null} initialAttempt={detail.listeningAttempts[0]} onSave={saveListening} onComplete={setListeningSummary} onContinue={() => setActiveTab("roleplay")} />
       ) : null}
       {activeTab === "roleplay" ? (
         <LessonRoleplay lesson={lesson} messages={chatMessages} input={chatInput} index={chatIndex} saving={roleplaySaving} error={roleplayError} setInput={setChatInput} onSend={sendChat} onContinue={() => setActiveTab("writing")} />
