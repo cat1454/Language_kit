@@ -225,5 +225,5 @@ Result: passed with CRLF warnings only.
 
 - Prompt 10 is complete locally.
 - RED and GREEN checkpoint commits exist on the active branch.
-- Final documentation checkpoint is ready to create.
+- Final documentation checkpoint was created as `71932b4`.
 - No push was made.
