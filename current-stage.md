@@ -9,7 +9,7 @@ Branch: `chore/product-hardening-release`
 
 ## Current Milestone Status
 
-Prompt 12 - Product hardening / release readiness: verification in progress.
+Prompt 12 - Product hardening / release readiness: complete locally.
 
 Prompt 11 was complete and committed before Prompt 12 began. Preflight found a
 clean worktree on `chore/model-readiness-v1` at `d98cacad docs: complete model
@@ -56,11 +56,88 @@ part of this stage.
 
 - RED: `79138ee2 test: add release readiness red coverage`
   - focused test ran 10 tests and failed 8 for the missing release artifacts
-- GREEN: pending focused release-check verification
+- GREEN: `21bfd11e chore: add product hardening release gates`
+  - the same focused target passed all 10 release-readiness tests
 
 ## Verification Run
 
-Pending final Prompt 12 verification matrix.
+```text
+corepack pnpm vitest run tests/unit/release-readiness.test.ts
+Result: passed. 1 file, 10 tests.
+
+corepack pnpm vitest run tests/unit/model-readiness.test.ts
+Result: passed. 1 file, 13 tests.
+
+corepack pnpm vitest run tests/unit/adaptive-review.test.ts
+Result: passed. 1 file, 7 tests.
+
+corepack pnpm vitest run tests/unit/local-stt-prototype.test.ts
+Result: passed. 1 file, 15 tests.
+
+corepack pnpm vitest run tests/unit/exports.test.ts
+Result: passed. 1 file, 8 tests.
+
+corepack pnpm vitest run tests/unit/eval-set-v0.test.ts
+Result: passed. 1 file, 3 tests.
+
+corepack pnpm vitest run tests/integration/review-queue-routes.test.ts
+Result: passed. 1 file, 7 tests.
+
+corepack pnpm vitest run tests/integration/lesson-detail-safety-routes.test.ts
+Result: passed. 1 file, 4 tests.
+
+corepack pnpm vitest run tests/integration/speaking-attempt-routes.test.ts
+Result: passed. 1 file, 4 tests.
+
+corepack pnpm playwright test tests/e2e/mvp-flow.spec.ts --workers=1
+Result: passed. 5 tests.
+
+corepack pnpm playwright test tests/e2e/mvp-hardening.spec.ts --workers=1
+Result: passed. 3 tests.
+
+corepack pnpm playwright test tests/e2e/listening-v2.spec.ts --workers=1
+Result: passed. 5 tests.
+
+corepack pnpm playwright test tests/e2e/adaptive-review.spec.ts --workers=1
+Result: passed. 2 tests.
+
+corepack pnpm playwright test tests/e2e/speaking-stt-foundation.spec.ts --workers=1
+Result: passed. 3 tests.
+
+corepack pnpm check
+Result: passed. File-size and TypeScript checks passed. 25 test files passed,
+1 skipped. 157 tests passed, 8 PostgreSQL tests skipped by default.
+
+corepack pnpm test:coverage
+Result: passed. Statements 90.19%, branches 84.61%, functions 92.74%,
+lines 91.34%.
+
+corepack pnpm test:all
+Result: passed with the same check, test, and coverage results.
+
+corepack pnpm build
+Result: passed. Next.js production build compiled, typed, and generated pages.
+
+corepack pnpm eval:v0
+Result: passed. 1 file, 3 tests.
+
+corepack pnpm dogfood:check
+Result: passed. Real dogfood log found and eval v0 passed.
+
+corepack pnpm model:readiness
+Result: passed. 1 file, 13 tests.
+
+corepack pnpm release:check
+Result: passed. 1 file, 10 tests.
+```
+
+Docker Desktop was initially stopped during E2E setup. After starting the local
+engine, `corepack pnpm db:up` and `corepack pnpm db:migrate` passed, and all five
+requested E2E files passed without application changes.
+
+Security/privacy review passed for Prompt 12 scope. No secret, identifier,
+speaking-audio, provider, model, database, migration, contract, export, eval,
+dataset-manifest, or learner-facing payload change was added.
 
 ## Next Stage
 
