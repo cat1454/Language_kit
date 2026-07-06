@@ -13,3 +13,6 @@ Do not create future `X.5` prompts for every small task. Use an `X.5` prompt onl
 - Observability/logging later, before production or multi-learner use.
 - Speaking-audio retention and deletion controls before any recording is
   persisted beyond the current browser page session.
+- Local STT production plan covering model/runtime installation, supported
+  devices, process sandboxing, performance benchmarks, consent UX, failure
+  recovery, security review, and privacy review.
