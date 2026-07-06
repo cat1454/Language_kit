@@ -20,6 +20,12 @@ The MVP is not a general language-learning app. It is a structured learning syst
 7. `06-mvp-build-plan.md` - build milestones.
 8. `07-test-and-acceptance-plan.md` - pre-code acceptance scenarios.
 
+Release and operations references:
+
+- `release-readiness.md` - release scope, test matrix, and checklists.
+- `security-privacy-review.md` - local MVP data and privacy boundaries.
+- `operational-runbook.md` - setup, backup/restore, rollback, and smoke checks.
+
 ## MVP Intent
 
 Build the smallest useful web system that can:

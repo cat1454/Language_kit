@@ -35,6 +35,7 @@ export {
   saveWritingDraft
 } from "@/src/db/practice-repository";
 export { getLessonPackDetail } from "@/src/db/lesson-detail-repository";
+export { getReviewQueue } from "@/src/db/review-repository";
 
 export type LessonPackSubmission = {
   prompt: string;

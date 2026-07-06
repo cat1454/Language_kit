@@ -1,0 +1,211 @@
+{
+  "schemaVersion": "language-kit.dataset_manifest.v1",
+  "project": "Language Kit",
+  "createdFor": "readiness",
+  "datasets": [
+    {
+      "kind": "lesson_generation_sft",
+      "intendedUse": "sft_candidate",
+      "readinessStatus": "needs_review",
+      "source": "GET /api/exports/lesson_generation_sft",
+      "contractRefs": ["lesson_pack.v1"],
+      "requiredFields": [
+        "accepted",
+        "prompt",
+        "raw_response",
+        "accepted_normalized_json"
+      ],
+      "policyRefs": ["docs/json-export-standard.md"],
+      "privacy": {
+        "containsPersonalData": true,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": true
+      },
+      "qualityGates": {
+        "validJsonl": true,
+        "contractValidated": true,
+        "acceptedOnlyWhenRequired": true,
+        "rejectedRowsHaveReason": false,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": false,
+        "sourceDocumented": true
+      }
+    },
+    {
+      "kind": "feedback_scoring_sft",
+      "intendedUse": "sft_candidate",
+      "readinessStatus": "needs_review",
+      "source": "GET /api/exports/feedback_scoring_sft",
+      "contractRefs": ["feedback.v1"],
+      "requiredFields": [
+        "accepted",
+        "prompt",
+        "raw_response",
+        "rejection_reason"
+      ],
+      "policyRefs": ["docs/json-export-standard.md"],
+      "privacy": {
+        "containsPersonalData": true,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": true
+      },
+      "qualityGates": {
+        "validJsonl": true,
+        "contractValidated": true,
+        "acceptedOnlyWhenRequired": false,
+        "rejectedRowsHaveReason": true,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": false,
+        "sourceDocumented": true
+      }
+    },
+    {
+      "kind": "error_classification",
+      "intendedUse": "sft_candidate",
+      "readinessStatus": "blocked",
+      "source": "GET /api/exports/error_classification",
+      "contractRefs": ["feedback.v1 error_log_items"],
+      "requiredFields": [
+        "evidence",
+        "error_type",
+        "correction",
+        "why_it_matters",
+        "retry_priority"
+      ],
+      "policyRefs": ["docs/json-export-standard.md"],
+      "privacy": {
+        "containsPersonalData": true,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": true
+      },
+      "qualityGates": {
+        "validJsonl": true,
+        "contractValidated": true,
+        "acceptedOnlyWhenRequired": false,
+        "rejectedRowsHaveReason": false,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": false,
+        "sourceDocumented": true
+      }
+    },
+    {
+      "kind": "retry_generation_sft",
+      "intendedUse": "sft_candidate",
+      "readinessStatus": "needs_review",
+      "source": "GET /api/exports/retry_generation_sft",
+      "contractRefs": ["feedback.v1 retry_drill"],
+      "requiredFields": ["source_error", "correction", "retry_drill"],
+      "policyRefs": ["docs/json-export-standard.md"],
+      "privacy": {
+        "containsPersonalData": true,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": true
+      },
+      "qualityGates": {
+        "validJsonl": true,
+        "contractValidated": true,
+        "acceptedOnlyWhenRequired": false,
+        "rejectedRowsHaveReason": false,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": false,
+        "sourceDocumented": true
+      }
+    },
+    {
+      "kind": "json_repair_sft",
+      "intendedUse": "repair_seed",
+      "readinessStatus": "blocked",
+      "source": "GET /api/exports/json_repair_sft",
+      "contractRefs": ["lesson_pack.v1", "feedback.v1"],
+      "requiredFields": [
+        "accepted",
+        "raw_response",
+        "rejection_reason",
+        "repaired_json"
+      ],
+      "policyRefs": ["docs/json-export-standard.md"],
+      "privacy": {
+        "containsPersonalData": true,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": true
+      },
+      "qualityGates": {
+        "validJsonl": true,
+        "contractValidated": false,
+        "acceptedOnlyWhenRequired": true,
+        "rejectedRowsHaveReason": true,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": false,
+        "sourceDocumented": true
+      }
+    },
+    {
+      "kind": "eval_set_v0",
+      "intendedUse": "eval_candidate",
+      "readinessStatus": "ready_for_eval",
+      "source": "eval/eval_set_v0.jsonl",
+      "contractRefs": ["lesson_pack.v1", "feedback.v1"],
+      "requiredFields": [
+        "id",
+        "task_type",
+        "input",
+        "expected",
+        "checks",
+        "source",
+        "notes"
+      ],
+      "policyRefs": ["docs/eval-v0.md"],
+      "privacy": {
+        "containsPersonalData": false,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": false
+      },
+      "qualityGates": {
+        "validJsonl": true,
+        "contractValidated": true,
+        "acceptedOnlyWhenRequired": true,
+        "rejectedRowsHaveReason": true,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": true,
+        "sourceDocumented": true
+      }
+    },
+    {
+      "kind": "dogfood_sessions",
+      "intendedUse": "diagnostic_only",
+      "readinessStatus": "blocked",
+      "source": "eval/dogfood_sessions/*.md",
+      "contractRefs": [],
+      "requiredFields": [],
+      "policyRefs": ["docs/dogfood-runbook.md"],
+      "privacy": {
+        "containsPersonalData": true,
+        "containsUserId": false,
+        "containsAudioPath": false,
+        "requiresManualReview": true
+      },
+      "qualityGates": {
+        "validJsonl": false,
+        "contractValidated": false,
+        "acceptedOnlyWhenRequired": false,
+        "rejectedRowsHaveReason": false,
+        "noUserId": true,
+        "noAudioPath": true,
+        "noSecrets": false,
+        "sourceDocumented": true
+      }
+    }
+  ]
+}

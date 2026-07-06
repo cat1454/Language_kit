@@ -142,6 +142,17 @@ Track progress across sessions:
 - chunk reuse
 - retry completion
 
+### 13. Adaptive Review v1
+
+The progress view derives a deterministic **Review next** queue from existing
+retry drills, feedback errors, listening attempts, writing drafts, roleplay
+responses, and manual speaking transcripts.
+
+The queue uses fixed priority rules and stable sorting. It does not use an AI
+model, vector search, due dates, notifications, or a personalized schedule.
+Review items link back to the relevant lesson so the learner re-enters the
+existing listening -> roleplay -> writing -> feedback -> retry flow.
+
 ## Sample Topic Flow
 
 Topic: Reschedule a meeting.
