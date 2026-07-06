@@ -260,6 +260,22 @@ Each export should preserve enough context to be useful later:
 - rejection reason if rejected
 - lesson context
 
+## Derived Adaptive Review Read Model
+
+Adaptive review v1 adds no table and no migration. `GET /api/review-queue`
+derives learner-safe review items from existing `retry_drills`, `error_log`,
+`listening_attempts`, `writing_submissions`, `roleplay_turns`, and
+`speaking_attempts`.
+
+The read layer joins through `lesson_packs` and `topics`, filters the current
+single-user placeholder internally, and projects only compact review fields.
+It never returns `user_id`, speaking or listening audio paths, raw model output,
+or full transcript/body payloads.
+
+`model_outputs` is not used directly because it lacks a lesson-pack foreign key.
+Accepted feedback signals are already available through feedback-created errors,
+retry drills, and writing feedback.
+
 ## Source Trace
 
 - Storage tables and dataset exports: `research/budget-constrained-architecture.md`

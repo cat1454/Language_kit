@@ -1,24 +1,23 @@
 # Current Stage - Language Kit
 
 Audit/update date: 2026-07-06
-Branch: `spike/local-stt-prototype`
+Branch: `feat/adaptive-review-v1`
 
 ## Stage ID
 
-`M9_5_LOCAL_STT_PROTOTYPE_SPIKE`
+`M10_ADAPTIVE_REVIEW_V1`
 
 ## Current Milestone Status
 
-Prompt 9.5 - Local STT prototype spike: complete locally.
+Prompt 10 - Adaptive review v1: complete locally.
 
-Prompt 9 was committed before Prompt 9.5 began. Preflight was clean on
-`spike/local-stt-prototype`, with Prompt 9 completion commit
-`7a1dac9 docs: complete speaking foundation verification`.
+Prompt 9.5 was committed before Prompt 10 began. Preflight was clean on
+`feat/adaptive-review-v1`, with Prompt 9.5 completion commit
+`48531a4 docs: complete local STT prototype spike`.
 
-Prompt 9.5 adds a disabled-by-default server-side boundary for evaluating a
-developer-managed local STT executable later. It is not connected to the
-learner UI or an API route and does not bundle, download, install, or execute a
-real model in tests.
+Prompt 10 adds a deterministic, explainable review queue derived from existing
+learner practice data. It does not add AI ranking, vector search, spaced
+repetition scheduling, notifications, model integration, or STT wiring.
 
 - Milestone 1, Prompt Builder And Schema Validation: complete.
 - Milestone 2, Lesson Display And Storage: complete at MVP scope.
@@ -30,54 +29,88 @@ real model in tests.
 - Milestone 7.5, First Dogfood Run + Eval Calibration: complete.
 - Milestone 8, Listening v2 Interaction: complete.
 - Milestone 9, Speaking/STT Foundation: complete.
-- Milestone 9.5, Local STT Prototype Spike: complete locally.
+- Milestone 9.5, Local STT Prototype Spike: complete.
+- Milestone 10, Adaptive Review v1: complete locally.
+
+## Source Inspection
+
+Existing signals used:
+
+- `retry_drills`, including completion state and feedback-linked drills
+- `error_log` feedback corrections and retry priority
+- `listening_attempts` scores and missed details
+- `writing_submissions` drafts, accepted feedback, and correction state
+- `roleplay_turns` saved learner responses without follow-up feedback
+- `speaking_attempts` manual transcripts without selecting audio paths
+
+Signals inspected but not used directly:
+
+- `model_outputs`: feedback rows exist, but the table has no lesson-pack foreign
+  key and includes large raw prompts/responses. Accepted feedback is represented
+  more safely through errors, retry drills, and writing feedback.
+- dashboard summary: useful for aggregate metrics, but it has no lesson or
+  learner action for a review item.
+
+No migration was needed.
 
 ## What Is Done
 
-- Added `src/lib/local-stt-prototype.ts` with explicit input/result types and
-  stable safe error codes.
-- Kept the boundary disabled unless `LANGUAGE_KIT_LOCAL_STT_ENABLED=1` and
-  `LANGUAGE_KIT_LOCAL_STT_COMMAND` are both explicitly configured.
-- Added a deterministic injected file inspector and process runner for tests.
-- Added a real local runner using `spawn` with `shell: false` and argument
-  arrays; no command-string interpolation is used.
-- Added explicit consent, absolute local path, extension, regular-file, size,
-  timeout, stdout-size, strict JSON, and non-empty transcript checks.
-- Rejected relative paths, URLs, Windows network paths, unsupported audio
-  types, files over 25 MiB, malformed output, timeout, and execution failure.
-- Redacted command, stderr, thrown errors, and other process details from
-  returned results.
-- Added environment examples while keeping the feature disabled by default.
-- Added `docs/local-stt-prototype.md` and updated the speaking and
-  infrastructure-debt documentation.
-- Preserved the Prompt 9 learner UI, manual transcript API, local page-session
-  recording, and privacy behavior unchanged.
+- Added `src/lib/adaptive-review.ts` with stable item IDs, fixed priority rules,
+  snippet caps, deterministic sorting, and summary counts.
+- Added `src/db/review-repository.ts` with explicit field selection and internal
+  single-user filtering.
+- Added `GET /api/review-queue` with strict `lessonId` and `limit` validation.
+- Added a dashboard **Review next** panel with empty, error, and populated
+  states plus lesson links and action hints.
+- Preserved the existing browser-only demo fallback through a derived mock
+  review queue.
+- Added unit, integration, and Playwright coverage.
+- Added adaptive review documentation and updated learning flow, data model,
+  and infrastructure debt notes.
 
-## Local Command Contract
+## Adaptive Review Rules
 
-```text
-<command> <absolute-audio-path> [--language <value>] [--engine <value>]
-```
+Priority 4 urgent:
 
-The command must return one strict JSON object with `transcript` and optional
-`language` and `durationMs`. Unknown fields and empty transcripts are rejected.
+- unfinished retry drills linked to accepted feedback errors
+- unresolved high-priority feedback errors
 
-No `stt:local:probe` package script was added. Running the TypeScript module
-directly from Node would require a new runtime transpiler or duplicate logic,
-which is not justified for this spike.
+Priority 3 high:
+
+- weak listening checks or missed details
+- writing with accepted feedback and unresolved corrections
+
+Priority 2 normal:
+
+- lesson retry drills not linked to feedback
+- writing drafts without feedback
+- saved roleplay responses without follow-up feedback
+- manual speaking transcripts
+
+Priority 1 low:
+
+- completed retry drills
+- resolved feedback errors
+
+Stable sort:
+
+1. priority descending
+2. source timestamp descending
+3. stable item ID ascending
+
+Missing or invalid timestamps use a deterministic zero-time fallback.
 
 ## Privacy And Safety Decisions
 
-- Local STT is disabled by default.
-- No cloud or paid provider exists.
-- No model is bundled or downloaded automatically.
-- Tests use injected mocks and never require a real model.
-- Audio paths must identify already-existing local files.
-- The boundary performs no upload, network call, database write, or file write.
-- Browser recordings remain page-session Blob URLs and are not passed to the
-  prototype.
-- Microphone permission behavior is unchanged and remains learner-initiated.
-- Safe failures expose codes only, never configured command details.
+- `user_id` is filtered internally and never returned.
+- `speaking_attempts.audio_path` is not selected.
+- Listening audio paths are not selected.
+- Evidence snippets are capped at 180 characters.
+- Raw database rows, model prompts, model responses, and large transcript/body
+  payloads are not returned.
+- Query parameters are allowlisted, single-valued, and strictly validated.
+- No network provider, model execution, upload, audio persistence, or STT
+  connection was added.
 
 ## Data And Contract Impact
 
@@ -87,79 +120,91 @@ which is not justified for this spike.
 - Migration: none.
 - Lesson detail payload: unchanged.
 - Speaking attempt payload and response: unchanged.
+- Review queue payload: added.
 - Exports: unchanged.
 - Eval set: unchanged.
-- Learner-facing `user_id`: still excluded and regression verified.
+- Learner-facing `user_id`: excluded and regression verified.
+- Audio paths: excluded and regression verified.
 
-## Production Decisions Still Required
+## API
 
-- Local model and engine choice.
-- Installation and runtime documentation.
-- Supported device, CPU/GPU/RAM, and disk requirements.
-- Audio and transcript retention/deletion policy.
-- Learner-facing consent UX.
-- Failure, recovery, and cancellation behavior.
-- Process sandboxing and production security review.
-- Representative latency and resource benchmarks.
-- End-to-end privacy review.
+`GET /api/review-queue`
+
+- optional `lessonId`: positive integer
+- optional `limit`: positive integer, default 10, maximum 25
+- invalid, unknown, duplicate, or over-limit parameters return HTTP 400
+- response contains compact `items` and priority-bucket `summary`
 
 ## In Scope For The Next Stage
 
-Recommended next implementation stage: Prompt 10 - Adaptive review v1.
+Recommended next implementation stage:
 
-Prompt 9.5 does not authorize production local STT, learner-facing automatic
-transcription, persisted audio, or cloud integration.
+Prompt 11 - Local model/eval/fine-tune readiness.
 
-## Acceptance Checklist For Prompt 9.5
+Prompt 10 does not authorize spaced repetition scheduling, due dates, vector
+memory, notifications, auth, model ranking, local model execution, or STT
+production wiring.
 
-- [x] Prompt 9 checkpoint commit verified.
-- [x] Prompt 9.5 started from a clean `spike/local-stt-prototype` branch.
-- [x] Prototype boundary exists and is disabled by default.
-- [x] Local command requires explicit developer configuration.
-- [x] Runner uses argument arrays and `shell: false`.
-- [x] Consent and local audio path checks are enforced.
-- [x] Timeout, malformed output, empty transcript, and execution failures are
-  normalized to safe codes.
-- [x] Command details and thrown errors are not exposed.
-- [x] Tests use deterministic mocks and no real model.
-- [x] Speaking manual transcript API and learner UI remain unchanged.
-- [x] No upload, audio persistence, cloud provider, dependency, or migration.
-- [x] No pronunciation/fluency scoring or realtime voice roleplay.
-- [x] Remaining production decisions are documented.
+## Acceptance Checklist For Prompt 10
+
+- [x] Prompt 9.5 checkpoint commit verified.
+- [x] Prompt 10 started from a clean `feat/adaptive-review-v1` branch.
+- [x] Deterministic review model exists.
+- [x] Stable IDs, snippet caps, priority rules, and sorting are tested.
+- [x] Review repository derives items from existing persisted tables.
+- [x] No migration or contract change was added.
+- [x] `GET /api/review-queue` exists with strict query validation.
+- [x] Dashboard review panel supports empty, populated, error, and demo states.
+- [x] `user_id` and audio path safety are verified.
+- [x] Listening v2 and speaking foundation regressions pass.
+- [x] Eval and dogfood checks pass.
+
+## TDD Checkpoints
+
+- RED: `79a2032 test: add adaptive review queue red coverage`
+- GREEN: `7ace972 feat: add deterministic adaptive review queue`
 
 ## Verification Run
 
 ```text
-corepack pnpm vitest run tests/unit/speaking-transcription.test.ts
-Result: passed. 1 file, 3 tests.
+corepack pnpm vitest run tests/unit/adaptive-review.test.ts
+Result: passed. 1 file, 7 tests.
 
-corepack pnpm vitest run tests/unit/local-stt-prototype.test.ts
-Result: passed. 1 file, 15 tests.
+corepack pnpm vitest run tests/integration/review-queue-routes.test.ts
+Result: passed. 1 file, 7 tests.
 
-Requested path: tests/integration/speaking-attempts-routes.test.ts
-Actual equivalent: tests/integration/speaking-attempt-routes.test.ts
-corepack pnpm vitest run tests/integration/speaking-attempt-routes.test.ts
-Result: passed. 1 file, 4 tests.
+corepack pnpm vitest run tests/integration/learning-routes.test.ts
+Result: passed. 1 file, 13 tests.
 
 corepack pnpm vitest run tests/integration/lesson-detail-safety-routes.test.ts
 Result: passed. 1 file, 4 tests.
+
+corepack pnpm vitest run tests/integration/speaking-attempt-routes.test.ts
+Result: passed. 1 file, 4 tests.
+
+corepack pnpm playwright test tests/e2e/adaptive-review.spec.ts --workers=1
+Result: passed. 2 tests.
+
+corepack pnpm playwright test tests/e2e/listening-v2.spec.ts --workers=1
+Result: passed. 5 tests.
 
 corepack pnpm playwright test tests/e2e/speaking-stt-foundation.spec.ts --workers=1
 Result: passed. 3 tests.
 
 corepack pnpm check
-Result: passed. File-size and TypeScript checks passed. 20 test files passed,
-1 skipped. 117 tests passed, 8 PostgreSQL tests skipped by default.
+Result: passed. File-size and TypeScript checks passed. 23 test files passed,
+1 skipped. 134 tests passed, 8 PostgreSQL tests skipped by default.
 
 corepack pnpm test:coverage
-Result: passed. Statements 88.59%, branches 84.34%, functions 90%,
-lines 89.42%.
+Result: passed. Statements 90.13%, branches 85.20%, functions 92.68%,
+lines 91.40%.
 
 corepack pnpm test:all
-Result: passed with the same test and coverage results.
+Result: passed with the same 134 tests and coverage results.
 
 corepack pnpm build
-Result: passed. Next.js production build compiled, typed, and generated routes.
+Result: passed. Next.js production build compiled, typed, generated pages, and
+included GET /api/review-queue.
 
 corepack pnpm eval:v0
 Result: passed. 1 file, 3 tests.
@@ -168,9 +213,9 @@ corepack pnpm dogfood:check
 Result: passed. Real dogfood log found and eval v0 passed.
 
 Security review
-Result: passed for Prompt 9.5 scope. No network/upload/storage path, package,
-UI, API, database, or migration change was added. The local runner uses
-shell-disabled argument arrays and safe error projections.
+Result: passed for Prompt 10 scope. Query parameters are strictly validated,
+database queries are parameterized, only explicit fields are selected, audio
+paths are not selected, user_id is internal only, and evidence is capped.
 
 git diff --check
 Result: passed with CRLF warnings only.
@@ -178,8 +223,7 @@ Result: passed with CRLF warnings only.
 
 ## Last Update Notes
 
-- Prompt 9.5 is complete locally and verified.
-- TDD RED and GREEN checkpoint commits were created on the active branch.
-- Final documentation checkpoint commit created on the active branch.
+- Prompt 10 is complete locally.
+- RED and GREEN checkpoint commits exist on the active branch.
+- Final documentation checkpoint is ready to create.
 - No push was made.
-- Prompt 10 remains separate and out of scope.

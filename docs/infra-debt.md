@@ -16,3 +16,6 @@ Do not create future `X.5` prompts for every small task. Use an `X.5` prompt onl
 - Local STT production plan covering model/runtime installation, supported
   devices, process sandboxing, performance benchmarks, consent UX, failure
   recovery, security review, and privacy review.
+- Adaptive review v2 research only when product evidence justifies spaced
+  repetition, due dates, notifications, vector memory, or personalized
+  scheduling.

@@ -149,9 +149,30 @@ describe("browser demo store", () => {
 
     expect(mockGetLessons()).toHaveLength(2);
     expect(mockGetDashboardSummary().completedTopics).toBe(2);
+    expect(mockGetReviewQueue(2).items).toHaveLength(2);
   });
 
   it("derives a learner-safe review queue from demo data", () => {
+    mockGetLessons();
+    const data = JSON.parse(storage.getItem(STORAGE_KEY) ?? "[]");
+    data[0].roleplayTurns = [{
+      id: 801,
+      lessonPackId: 101,
+      turnIndex: 1,
+      aiPrompt: "Why move the meeting?",
+      learnerGoal: "Explain the conflict.",
+      learnerResponse: "I have a scheduling conflict."
+    }];
+    data[0].writingSubmission = {
+      id: 802,
+      lessonPackId: 101,
+      task: "Write an email.",
+      constraints: [],
+      targetChunks: [],
+      draft: "Could we reschedule?"
+    };
+    storage.setItem(STORAGE_KEY, JSON.stringify(data));
+
     const queue = mockGetReviewQueue(2);
     const serialized = JSON.stringify(queue);
 
@@ -165,14 +186,21 @@ describe("browser demo store", () => {
     storage.setItem("language_kit_demo_speaking_attempts", JSON.stringify([{
       lessonId: 101,
       promptType: "roleplay",
-      promptRef: "Ask to move the meeting.",
-      transcript: "Could we reschedule?",
-      createdAt: "2026-07-06T12:00:00.000Z"
+      transcript: "Could we reschedule?"
+    }, {
+      lessonId: 999,
+      promptType: "roleplay",
+      transcript: "Unknown lesson."
     }]));
 
     expect(mockGetReviewQueue(10).items).toEqual(expect.arrayContaining([
       expect.objectContaining({ sourceType: "speaking_attempt", lessonId: 101 })
     ]));
+
+    storage.setItem("language_kit_demo_speaking_attempts", "{}");
+    expect(mockGetReviewQueue(10).items.some(
+      (item) => item.sourceType === "speaking_attempt"
+    )).toBe(false);
 
     storage.setItem("language_kit_demo_speaking_attempts", "{broken-json");
     expect(mockGetReviewQueue(10).items.some(
