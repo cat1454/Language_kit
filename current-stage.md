@@ -1,116 +1,97 @@
 # Current Stage - Language Kit
 
 Audit/update date: 2026-07-06
-Branch: `feat/adaptive-review-v1`
+Branch: `chore/model-readiness-v1`
 
 ## Stage ID
 
-`M10_ADAPTIVE_REVIEW_V1`
+`M11_LOCAL_MODEL_EVAL_FINE_TUNE_READINESS`
 
 ## Current Milestone Status
 
-Prompt 10 - Adaptive review v1: complete locally.
+Prompt 11 - Local model/eval/fine-tune readiness: complete locally.
 
-Prompt 9.5 was committed before Prompt 10 began. Preflight was clean on
-`feat/adaptive-review-v1`, with Prompt 9.5 completion commit
-`48531a4 docs: complete local STT prototype spike`.
+Prompt 10 was committed before Prompt 11 began. Preflight found a clean
+worktree on `chore/model-readiness-v1` at `c7086840 Fix adaptive review stage
+note`. Prompt 10 completion evidence remains reachable through `71932b4d`,
+`7ace972b`, and `79a20320`.
 
-Prompt 10 adds a deterministic, explainable review queue derived from existing
-learner practice data. It does not add AI ranking, vector search, spaced
-repetition scheduling, notifications, model integration, or STT wiring.
+Prompt 11 adds deterministic readiness definitions, a safe example dataset
+manifest, privacy and quality gates, a model-card template, and review runbooks.
+It does not train, fine-tune, serve, download, or integrate a model.
 
-- Milestone 1, Prompt Builder And Schema Validation: complete.
-- Milestone 2, Lesson Display And Storage: complete at MVP scope.
-- Milestone 3, Listening Checks And Logs: complete at MVP scope.
-- Milestone 4, Persistence, Feedback, Retry, Export, And Data Safety: complete.
-- Milestone 5, Listening v1 foundation: complete.
-- Milestone 6, Dataset Export: covered by eval v0.
-- Milestone 7, Dogfood + Eval Set v0: complete.
-- Milestone 7.5, First Dogfood Run + Eval Calibration: complete.
-- Milestone 8, Listening v2 Interaction: complete.
-- Milestone 9, Speaking/STT Foundation: complete.
-- Milestone 9.5, Local STT Prototype Spike: complete.
-- Milestone 10, Adaptive Review v1: complete locally.
+- Milestones 1-10: complete at their documented local scope.
+- Milestone 11, Local Model/Eval/Fine-Tune Readiness: complete locally.
 
 ## Source Inspection
 
-Existing signals used:
+Existing export kinds:
 
-- `retry_drills`, including completion state and feedback-linked drills
-- `error_log` feedback corrections and retry priority
-- `listening_attempts` scores and missed details
-- `writing_submissions` drafts, accepted feedback, and correction state
-- `roleplay_turns` saved learner responses without follow-up feedback
-- `speaking_attempts` manual transcripts without selecting audio paths
+- `lesson_generation_sft`
+- `feedback_scoring_sft`
+- `error_classification`
+- `retry_generation_sft`
+- `json_repair_sft`
 
-Signals inspected but not used directly:
+Readiness findings:
 
-- `model_outputs`: feedback rows exist, but the table has no lesson-pack foreign
-  key and includes large raw prompts/responses. Accepted feedback is represented
-  more safely through errors, retry drills, and writing feedback.
-- dashboard summary: useful for aggregate metrics, but it has no lesson or
-  learner action for a review item.
+- Lesson generation rows are accepted-only and retain prompt, raw response,
+  validated `lesson_pack.v1`, source mode, and acceptance metadata.
+- Feedback rows retain accepted/rejected status, raw response, parsed JSON,
+  rejection reason, and source metadata. Accepted and rejected rows must be
+  separated before any future training proposal.
+- Error-classification and retry-generation rows are useful supervised-data
+  candidates but do not include explicit accepted/rejected fields.
+- JSON-repair rows retain `raw_response` and `rejection_reason`, but
+  `repaired_json` remains `null`; they are repair seeds, not finished pairs.
+- Export output shapes do not include `user_id` or audio paths.
+- The checked-in dogfood log contains session metadata rather than raw model or
+  learner payloads, but the directory may contain private learner evidence and
+  is diagnostic-only. It must never be included automatically.
 
-No migration was needed.
+No export change was needed.
 
 ## What Is Done
 
-- Added `src/lib/adaptive-review.ts` with stable item IDs, fixed priority rules,
-  snippet caps, deterministic sorting, and summary counts.
-- Added `src/db/review-repository.ts` with explicit field selection and internal
-  single-user filtering.
-- Added `GET /api/review-queue` with strict `lessonId` and `limit` validation.
-- Added a dashboard **Review next** panel with empty, error, and populated
-  states plus lesson links and action hints.
-- Preserved the existing browser-only demo fallback through a derived mock
-  review queue.
-- Added unit, integration, and Playwright coverage.
-- Added adaptive review documentation and updated learning flow, data model,
-  and infrastructure debt notes.
+- Added `src/lib/model-readiness.ts` with strict Zod vocabularies and manifest
+  validation for dataset kinds, intended uses, readiness status, privacy flags,
+  quality gates, repair-seed policy, and training-review safety.
+- Added `datasets/manifest.example.json` covering five exports, eval v0, and
+  dogfood sessions without including a generated dataset dump or private log.
+- Added the `model:readiness` deterministic package command.
+- Added model-readiness, fine-tune-readiness, model-card, and eval-gate docs.
+- Added conservative placeholder thresholds and explicit privacy, source,
+  license, split, leakage, rollback, hardware, safety, and human-review gates.
+- Updated infrastructure debt for later production local-model work.
 
-## Adaptive Review Rules
+## Dataset Readiness Summary
 
-Priority 4 urgent:
+| Dataset | Intended use | Status |
+|---|---|---|
+| `lesson_generation_sft` | SFT candidate | needs review |
+| `feedback_scoring_sft` | SFT candidate | needs review |
+| `error_classification` | SFT candidate | blocked |
+| `retry_generation_sft` | SFT candidate | needs review |
+| `json_repair_sft` | repair seed | blocked |
+| `eval_set_v0` | eval candidate | ready for eval |
+| `dogfood_sessions` | diagnostic only | blocked |
 
-- unfinished retry drills linked to accepted feedback errors
-- unresolved high-priority feedback errors
-
-Priority 3 high:
-
-- weak listening checks or missed details
-- writing with accepted feedback and unresolved corrections
-
-Priority 2 normal:
-
-- lesson retry drills not linked to feedback
-- writing drafts without feedback
-- saved roleplay responses without follow-up feedback
-- manual speaking transcripts
-
-Priority 1 low:
-
-- completed retry drills
-- resolved feedback errors
-
-Stable sort:
-
-1. priority descending
-2. source timestamp descending
-3. stable item ID ascending
-
-Missing or invalid timestamps use a deterministic zero-time fallback.
+No dataset is approved for training. A `ready_for_training_review` status would
+still require manual review and is rejected by the schema when personal data,
+`user_id`, audio paths, or required safety gates are unsafe.
 
 ## Privacy And Safety Decisions
 
-- `user_id` is filtered internally and never returned.
-- `speaking_attempts.audio_path` is not selected.
-- Listening audio paths are not selected.
-- Evidence snippets are capped at 180 characters.
-- Raw database rows, model prompts, model responses, and large transcript/body
-  payloads are not returned.
-- Query parameters are allowlisted, single-valued, and strictly validated.
-- No network provider, model execution, upload, audio persistence, or STT
-  connection was added.
+- `user_id` and audio paths remain excluded from export rows and manifest data.
+- Free-form prompts, responses, feedback, and learner evidence are treated as
+  potentially personal until manually reviewed.
+- A false `noSecrets` gate means a manual scan remains outstanding; it does not
+  claim a secret was found.
+- Repair seeds require documented `raw_response` and `rejection_reason` policy.
+- Raw dogfood logs are never automatic training input.
+- No dataset was uploaded.
+- All checks are deterministic and model-free.
+- AI output remains untrusted until Zod validation passes.
 
 ## Data And Contract Impact
 
@@ -118,63 +99,51 @@ Missing or invalid timestamps use a deterministic zero-time fallback.
 - `feedback.v1` and manual feedback validation: unchanged.
 - Database tables: unchanged.
 - Migration: none.
-- Lesson detail payload: unchanged.
-- Speaking attempt payload and response: unchanged.
-- Review queue payload: added.
-- Exports: unchanged.
-- Eval set: unchanged.
-- Learner-facing `user_id`: excluded and regression verified.
-- Audio paths: excluded and regression verified.
+- Learner-facing APIs: unchanged.
+- Review queue payload: unchanged.
+- Exports and export row shapes: unchanged.
+- Eval set rows: unchanged.
+- Listening, Speaking, local STT prototype, and Adaptive Review behavior:
+  unchanged.
+- Local STT prototype: separate and disabled by default.
 
-## API
+## Model Readiness Boundary
 
-`GET /api/review-queue`
-
-- optional `lessonId`: positive integer
-- optional `limit`: positive integer, default 10, maximum 25
-- invalid, unknown, duplicate, or over-limit parameters return HTTP 400
-- response contains compact `items` and priority-bucket `summary`
-
-## In Scope For The Next Stage
-
-Recommended next implementation stage:
-
-Prompt 11 - Local model/eval/fine-tune readiness.
-
-Prompt 10 does not authorize spaced repetition scheduling, due dates, vector
-memory, notifications, auth, model ranking, local model execution, or STT
-production wiring.
-
-## Acceptance Checklist For Prompt 10
-
-- [x] Prompt 9.5 checkpoint commit verified.
-- [x] Prompt 10 started from a clean `feat/adaptive-review-v1` branch.
-- [x] Deterministic review model exists.
-- [x] Stable IDs, snippet caps, priority rules, and sorting are tested.
-- [x] Review repository derives items from existing persisted tables.
-- [x] No migration or contract change was added.
-- [x] `GET /api/review-queue` exists with strict query validation.
-- [x] Dashboard review panel supports empty, populated, error, and demo states.
-- [x] `user_id` and audio path safety are verified.
-- [x] Listening v2 and speaking foundation regressions pass.
-- [x] Eval and dogfood checks pass.
+- Model trained: no.
+- Fine-tune run: no.
+- Model served or integrated: no.
+- Model weights downloaded: no.
+- Provider integration added: no.
+- Vector search added: no.
+- Production local-model work requires a separate prompt.
 
 ## TDD Checkpoints
 
-- RED: `79a2032 test: add adaptive review queue red coverage`
-- GREEN: `7ace972 feat: add deterministic adaptive review queue`
+- RED: `ba1eccaa test: add model readiness red coverage`
+  - the focused target failed because the readiness module did not exist
+- GREEN: `6261fa7a feat: add deterministic model readiness gates`
+  - the same focused target passed 13 tests
 
 ## Verification Run
 
 ```text
+corepack pnpm vitest run tests/unit/model-readiness.test.ts
+Result: passed. 1 file, 13 tests.
+
+corepack pnpm vitest run tests/unit/exports.test.ts
+Result: passed. 1 file, 8 tests.
+
+corepack pnpm vitest run tests/unit/eval-set-v0.test.ts
+Result: passed. 1 file, 3 tests.
+
 corepack pnpm vitest run tests/unit/adaptive-review.test.ts
 Result: passed. 1 file, 7 tests.
 
+corepack pnpm vitest run tests/unit/local-stt-prototype.test.ts
+Result: passed. 1 file, 15 tests.
+
 corepack pnpm vitest run tests/integration/review-queue-routes.test.ts
 Result: passed. 1 file, 7 tests.
-
-corepack pnpm vitest run tests/integration/learning-routes.test.ts
-Result: passed. 1 file, 13 tests.
 
 corepack pnpm vitest run tests/integration/lesson-detail-safety-routes.test.ts
 Result: passed. 1 file, 4 tests.
@@ -192,19 +161,18 @@ corepack pnpm playwright test tests/e2e/speaking-stt-foundation.spec.ts --worker
 Result: passed. 3 tests.
 
 corepack pnpm check
-Result: passed. File-size and TypeScript checks passed. 23 test files passed,
-1 skipped. 134 tests passed, 8 PostgreSQL tests skipped by default.
+Result: passed. File-size and TypeScript checks passed. 24 test files passed,
+1 skipped. 147 tests passed, 8 PostgreSQL tests skipped by default.
 
 corepack pnpm test:coverage
-Result: passed. Statements 90.13%, branches 85.20%, functions 92.68%,
-lines 91.40%.
+Result: passed. Statements 90.19%, branches 84.61%, functions 92.74%,
+lines 91.34%.
 
 corepack pnpm test:all
-Result: passed with the same 134 tests and coverage results.
+Result: passed with the same check, test, and coverage results.
 
 corepack pnpm build
-Result: passed. Next.js production build compiled, typed, generated pages, and
-included GET /api/review-queue.
+Result: passed. Next.js production build compiled, typed, and generated pages.
 
 corepack pnpm eval:v0
 Result: passed. 1 file, 3 tests.
@@ -212,18 +180,20 @@ Result: passed. 1 file, 3 tests.
 corepack pnpm dogfood:check
 Result: passed. Real dogfood log found and eval v0 passed.
 
-Security review
-Result: passed for Prompt 10 scope. Query parameters are strictly validated,
-database queries are parameterized, only explicit fields are selected, audio
-paths are not selected, user_id is internal only, and evidence is capped.
+corepack pnpm model:readiness
+Result: passed. 1 file, 13 tests.
 
 git diff --check
-Result: passed with CRLF warnings only.
+Result: passed.
 ```
 
-## Last Update Notes
+Security/privacy review passed for Prompt 11 scope: no secrets, identifiers, or
+audio paths were added; unsafe candidate data cannot be marked ready for
+training review; and no runtime, API, database, provider, or export behavior was
+changed.
 
-- Prompt 10 is complete locally.
-- RED and GREEN checkpoint commits exist on the active branch.
-- Final documentation checkpoint was created as `71932b4`.
-- No push was made.
+## Next Stage
+
+Recommended next prompt: Prompt 12 - Product hardening / release readiness.
+
+No push was made.
