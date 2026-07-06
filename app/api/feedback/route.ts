@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { saveFeedback } from "@/src/db/repository";
+import { saveFeedback, saveRejectedFeedbackOutput } from "@/src/db/repository";
 import {
+  type RejectionReason,
   sourceModeSchema,
   validateFeedback
 } from "@/src/lib/contracts";
@@ -37,26 +38,22 @@ export async function POST(request: Request) {
 
   const jsonParse = parseManualFeedbackJson(requestParse.data.rawAiOutput);
   if (!jsonParse.success) {
-    return NextResponse.json(
-      {
-        status: "rejected",
-        rejectionReason: jsonParse.rejectionReason,
-        errors: jsonParse.errors
-      },
-      { status: 422 }
-    );
+    return rejectAndPersistFeedback({
+      input: requestParse.data,
+      parsedJson: null,
+      rejectionReason: jsonParse.rejectionReason,
+      errors: jsonParse.errors
+    });
   }
 
   const feedbackParse = validateFeedback(jsonParse.data);
   if (!feedbackParse.success) {
-    return NextResponse.json(
-      {
-        status: "rejected",
-        rejectionReason: feedbackParse.rejectionReason,
-        errors: feedbackParse.errors
-      },
-      { status: 422 }
-    );
+    return rejectAndPersistFeedback({
+      input: requestParse.data,
+      parsedJson: jsonParse.data,
+      rejectionReason: feedbackParse.rejectionReason,
+      errors: feedbackParse.errors
+    });
   }
 
   try {
@@ -75,6 +72,40 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Failed to save feedback", error);
+    return NextResponse.json(
+      { error: "Failed to save feedback." },
+      { status: 500 }
+    );
+  }
+}
+
+async function rejectAndPersistFeedback(input: {
+  input: z.infer<typeof feedbackSubmissionSchema>;
+  parsedJson: unknown | null;
+  rejectionReason: RejectionReason;
+  errors: string[];
+}) {
+  try {
+    const saved = await saveRejectedFeedbackOutput({
+      ...input.input,
+      parsedJson: input.parsedJson,
+      rejectionReason: input.rejectionReason
+    });
+
+    if (!saved) {
+      return NextResponse.json({ error: "Lesson not found." }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      {
+        status: "rejected",
+        rejectionReason: input.rejectionReason,
+        errors: input.errors
+      },
+      { status: 422 }
+    );
+  } catch (error) {
+    console.error("Failed to save rejected feedback", error);
     return NextResponse.json(
       { error: "Failed to save feedback." },
       { status: 500 }

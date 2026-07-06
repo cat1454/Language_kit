@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ClipboardCheck, Copy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ClipboardCheck, Copy, Save } from "lucide-react";
 import type { FeedbackV1, LessonPackV1 } from "@/src/lib/contracts";
 import { validateFeedback } from "@/src/lib/contracts";
 import { parseManualFeedbackJson } from "@/src/lib/manual-feedback-json";
@@ -10,24 +10,34 @@ import { calculateWritingReadinessScore } from "@/src/lib/scoring";
 
 export function LessonWritingPanel({
   lesson,
+  initialDraft,
   roleplayResponses,
   listeningSummary,
+  onSaveDraft,
   onSaveFeedback
 }: {
   lesson: LessonPackV1;
+  initialDraft?: string | null;
   roleplayResponses: string[];
   listeningSummary: string;
+  onSaveDraft: (draft: string) => Promise<void>;
   onSaveFeedback: (prompt: string, rawAiOutput: string) => Promise<FeedbackV1>;
 }) {
-  const [writingInput, setWritingInput] = useState("");
+  const [writingInput, setWritingInput] = useState(initialDraft ?? "");
   const [readinessScore, setReadinessScore] = useState<number | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState("");
   const [rawFeedback, setRawFeedback] = useState("");
   const [feedback, setFeedback] = useState<FeedbackV1 | null>(null);
   const [repairPrompt, setRepairPrompt] = useState("");
   const [status, setStatus] = useState("");
+  const [draftStatus, setDraftStatus] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setWritingInput(initialDraft ?? "");
+  }, [initialDraft]);
 
   function updateWriting(value: string) {
     setWritingInput(value);
@@ -36,6 +46,20 @@ export function LessonWritingPanel({
     setFeedback(null);
     setRepairPrompt("");
     setStatus("");
+    setDraftStatus("");
+  }
+
+  async function saveDraft() {
+    setSavingDraft(true);
+    setDraftStatus("");
+    try {
+      await onSaveDraft(writingInput);
+      setDraftStatus("Draft saved.");
+    } catch (caught) {
+      setDraftStatus(caught instanceof Error ? caught.message : "Failed to save draft.");
+    } finally {
+      setSavingDraft(false);
+    }
   }
 
   function prepareFeedback() {
@@ -118,11 +142,15 @@ export function LessonWritingPanel({
           <textarea id="writingInput" value={writingInput} disabled={Boolean(feedback)} onChange={(event) => updateWriting(event.target.value)} style={{ minHeight: "150px" }} />
         </div>
         <div className="actions">
+          <button type="button" className="secondary icon-btn" disabled={!writingInput.trim() || savingDraft || Boolean(feedback)} onClick={saveDraft}>
+            <Save size={16} /><span>{savingDraft ? "Saving..." : "Save draft"}</span>
+          </button>
           <button type="button" className="icon-btn" disabled={!writingInput.trim() || Boolean(feedback)} onClick={prepareFeedback}>
             <ClipboardCheck size={16} /><span>Prepare feedback prompt</span>
           </button>
           {readinessScore !== null ? <span className="badge level-b1">Draft readiness: {readinessScore}/100</span> : null}
         </div>
+        {draftStatus ? <p className={`status ${draftStatus === "Draft saved." ? "accepted" : "rejected"}`} role="status">{draftStatus}</p> : null}
       </div>
 
       {feedbackPrompt ? (

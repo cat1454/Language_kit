@@ -1,4 +1,5 @@
 import type { FeedbackV1, LessonPackV1 } from "@/src/lib/contracts";
+import type { ListeningAudioMetadata } from "@/src/lib/listening-audio-metadata";
 
 export type DataSource = "api" | "demo";
 
@@ -34,6 +35,24 @@ export type RetryDrill = {
   completedAt?: string | null;
 };
 
+export type RoleplayTurn = {
+  id: number;
+  lessonPackId: number;
+  turnIndex: number;
+  aiPrompt: string;
+  learnerGoal: string;
+  learnerResponse?: string | null;
+};
+
+export type WritingSubmission = {
+  id: number;
+  lessonPackId: number;
+  task: string;
+  constraints: string[];
+  targetChunks: string[];
+  draft?: string | null;
+};
+
 export type LessonDetail = {
   lessonPack: {
     id: number;
@@ -45,7 +64,14 @@ export type LessonDetail = {
   };
   lesson: LessonPackV1;
   listeningInputId?: number;
+  listeningInput?: {
+    id: number;
+    audioPath: string | null;
+    audioMetadata: ListeningAudioMetadata | null;
+  };
   listeningAttempts: ListeningAttempt[];
+  roleplayTurns?: RoleplayTurn[];
+  writingSubmission?: WritingSubmission | null;
   retryDrills: RetryDrill[];
 };
 

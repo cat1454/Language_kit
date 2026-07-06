@@ -8,6 +8,27 @@
       "when": 1783183418034,
       "tag": "0000_last_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783254584714,
+      "tag": "0001_mysterious_saracen",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783262711357,
+      "tag": "0002_overconfident_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783264367274,
+      "tag": "0003_bored_white_tiger",
+      "breakpoints": true
     }
   ]
 }

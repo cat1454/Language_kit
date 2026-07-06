@@ -714,6 +714,10 @@ button:disabled {
   gap: 16px;
 }
 
+.real-audio {
+  width: 100%;
+}
+
 .play-btn {
   width: 44px;
   height: 44px;

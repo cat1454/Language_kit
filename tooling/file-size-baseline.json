@@ -1,6 +1,5 @@
 {
   "src/components/language-kit-app.tsx": 562,
-  "src/db/repository.ts": 351,
   "src/lib/contracts.ts": 306,
   "src/lib/mockStore.ts": 572
 }

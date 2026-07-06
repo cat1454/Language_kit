@@ -1,4 +1,8 @@
 import type { LessonPackV1 } from "@/src/lib/contracts";
+import {
+  feedbackSchemaGuide,
+  lessonPackSchemaGuide
+} from "@/src/lib/prompt-schema-guides";
 
 export type LessonPromptInput = {
   targetLanguage: string;
@@ -13,8 +17,8 @@ export type LessonPromptInput = {
 export function buildLessonPackPrompt(input: LessonPromptInput): string {
   return [
     "Create one structured language practice lesson pack.",
-    "Return valid JSON only. Do not include markdown fences, comments, or prose outside JSON.",
-    "Use schema_version exactly lesson_pack.v1.",
+    "Return raw JSON only. Do not include markdown fences, comments, or prose before or after JSON.",
+    'Use schema_version exactly "lesson_pack.v1".',
     `Target language: ${input.targetLanguage}`,
     `Learner native language: ${input.learnerNativeLanguage}`,
     `CEFR level: ${input.cefrLevel}`,
@@ -22,11 +26,9 @@ export function buildLessonPackPrompt(input: LessonPromptInput): string {
     `Situation: ${input.situation}`,
     `Session length: ${input.sessionMinutes} minutes`,
     `Target skill focus: ${input.skillFocus}`,
-    "The lesson must follow this order: pre-listening, listening checks, chunk mining, roleplay, writing, feedback rubric, retry drills.",
-    "The listening script must be about 60-90 seconds.",
-    "Include 5-8 reusable chunks.",
-    "Do not reveal the full transcript through pre-listening or while-listening answers.",
-    "Required top-level JSON keys: schema_version, topic, target_language, learner_native_language, cefr_level, situation, pre_listening, listening_input, while_listening, post_listening, roleplay, writing_task, rubric, retry_drills, quality_checks."
+    "The lesson must follow this listening-first order: pre-listening, listening input, listening checks, chunk mining, roleplay, writing, feedback rubric, retry drills.",
+    lessonPackSchemaGuide,
+    "Before final answer, silently check that the JSON parses, has no markdown fences, has 60-90 second listening input, has 5-8 chunks, keeps the transcript gated before listening checks, and follows lesson_pack.v1 exactly."
   ].join("\n");
 }
 
@@ -57,7 +59,8 @@ export type FeedbackPromptInput = {
 export function buildFeedbackPrompt(input: FeedbackPromptInput): string {
   return [
     "Score this learner attempt and return feedback JSON only.",
-    "Required keys: scores, error_log_items, positive_notes, retry_drill.",
+    "Return raw JSON only. Do not include markdown fences, comments, or prose before or after JSON.",
+    feedbackSchemaGuide,
     `Lesson topic: ${input.lessonPack.topic}`,
     `Situation: ${input.lessonPack.situation}`,
     `Target chunks: ${input.lessonPack.post_listening.chunks
@@ -65,8 +68,6 @@ export function buildFeedbackPrompt(input: FeedbackPromptInput): string {
       .join(", ")}`,
     `Listening summary: ${input.listeningSummary}`,
     `Roleplay responses: ${input.roleplayResponses.join(" | ")}`,
-    `Writing draft: ${input.writingDraft}`,
-    "Each error_log_items entry must include type, evidence, correction, why_it_matters, and retry_priority.",
-    "retry_drill must contain an instruction and items."
+    `Writing draft: ${input.writingDraft}`
   ].join("\n");
 }

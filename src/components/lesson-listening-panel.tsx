@@ -2,8 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle, Pause, Play } from "lucide-react";
+import {
+  DictationPractice,
+  hasListeningAudio,
+  ListeningAudioPractice
+} from "@/src/components/listening-v2-practice-panels";
 import type { LessonPackV1 } from "@/src/lib/contracts";
 import type { ListeningAttempt } from "@/src/lib/lesson-data";
+import type { ListeningAudioMetadata } from "@/src/lib/listening-audio-metadata";
 import {
   calculateListeningScore,
   matchesAnswerKeywords,
@@ -14,12 +20,16 @@ type AttemptInput = Omit<ListeningAttempt, "id" | "lessonPackId" | "createdAt">;
 
 export function LessonListeningPanel({
   lesson,
+  audioPath,
+  audioMetadata,
   initialAttempt,
   onSave,
   onComplete,
   onContinue
 }: {
   lesson: LessonPackV1;
+  audioPath?: string | null;
+  audioMetadata?: ListeningAudioMetadata | null;
   initialAttempt?: ListeningAttempt;
   onSave: (attempt: AttemptInput) => Promise<void>;
   onComplete: (summary: string) => void;
@@ -46,9 +56,10 @@ export function LessonListeningPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasRealAudio = hasListeningAudio(audioPath, audioMetadata);
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (hasRealAudio || !isPlaying) return;
     timer.current = setInterval(() => {
       setSeconds((current) => {
         if (current >= lesson.listening_input.duration_seconds - 1) {
@@ -61,7 +72,7 @@ export function LessonListeningPanel({
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [isPlaying, lesson.listening_input.duration_seconds]);
+  }, [hasRealAudio, isPlaying, lesson.listening_input.duration_seconds]);
 
   function togglePlay() {
     if (!isPlaying && seconds >= lesson.listening_input.duration_seconds) {
@@ -132,22 +143,35 @@ export function LessonListeningPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div className="audio-player">
-        <div className="audio-controls">
-          <button type="button" className="play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
-            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-          </button>
-          <div className="waveform" aria-hidden="true">
-            {Array.from({ length: 30 }, (_, index) => (
-              <div className={`wave-bar ${isPlaying ? "active" : ""}`} key={index} />
-            ))}
+      {hasRealAudio ? (
+        <ListeningAudioPractice
+          lesson={lesson}
+          audioPath={audioPath}
+          audioMetadata={audioMetadata}
+          seconds={seconds}
+          onSecondsChange={setSeconds}
+        />
+      ) : (
+        <div className="audio-player" data-testid="demo-listening-player">
+          <p className="status pending">No lesson audio yet. Using demo listening timer.</p>
+          <div className="audio-controls">
+            <button type="button" className="play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </button>
+            <div className="waveform" aria-hidden="true">
+              {Array.from({ length: 30 }, (_, index) => (
+                <div className={`wave-bar ${isPlaying ? "active" : ""}`} key={index} />
+              ))}
+            </div>
+          </div>
+          <div className="audio-meta">
+            <span>{lesson.listening_input.recommended_voice} - {lesson.listening_input.accent}</span>
+            <span>{formatTime(seconds)} / {formatTime(lesson.listening_input.duration_seconds)}</span>
           </div>
         </div>
-        <div className="audio-meta">
-          <span>{lesson.listening_input.recommended_voice} · {lesson.listening_input.accent}</span>
-          <span>{formatTime(seconds)} / {formatTime(lesson.listening_input.duration_seconds)}</span>
-        </div>
-      </div>
+      )}
+
+      <DictationPractice checked={checked} script={lesson.listening_input.script} />
 
       <QuestionGroup title="Gist comprehension" questions={lesson.while_listening.gist_questions} values={gistInputs} setValues={setGistInputs} checked={checked} />
       <QuestionGroup title="Detail comprehension" questions={lesson.while_listening.detail_questions} values={detailInputs} setValues={setDetailInputs} checked={checked} />
@@ -158,7 +182,7 @@ export function LessonListeningPanel({
           <div className="field" key={item.phrase} style={{ marginBottom: "14px" }}>
             <label htmlFor={`key-phrase-${index}`}>Type the phrase you heard</label>
             <input id={`key-phrase-${index}`} value={keyPhraseInputs[index] ?? ""} disabled={checked} onChange={(event) => updateAt(setKeyPhraseInputs, keyPhraseInputs, index, event.target.value)} />
-            {checked ? <p className="muted">Expected: {item.phrase} — {item.meaning}</p> : null}
+            {checked ? <p className="muted">Expected: {item.phrase} -- {item.meaning}</p> : null}
           </div>
         ))}
       </div>
@@ -168,7 +192,7 @@ export function LessonListeningPanel({
           <h2>Unlocked Transcript</h2>
           <pre className="transcript">{lesson.listening_input.script}</pre>
         </div>
-      ) : <p className="status pending">🔒 Complete all listening checks to unlock the transcript.</p>}
+      ) : <p className="status pending">Locked: complete all listening checks to unlock the transcript.</p>}
 
       {error ? <p className="status rejected" role="alert">{error}</p> : null}
       <div className="actions" style={{ justifyContent: "space-between" }}>

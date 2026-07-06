@@ -1,0 +1,1 @@
+ALTER TABLE "listening_inputs" ADD COLUMN "audio_metadata_json" jsonb;

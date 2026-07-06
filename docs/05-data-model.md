@@ -11,6 +11,10 @@ The logical model should stay the same.
 
 ## Core Tables
 
+User-owned tables may include `user_id INTEGER NOT NULL DEFAULT 1` as a
+single-user placeholder. This is not authentication, authorization, or a real
+multi-user model.
+
 ### topics
 
 Stores the learning situation selected by the learner.
@@ -69,6 +73,7 @@ Fields:
 - `lesson_pack_id`
 - `script`
 - `audio_path`
+- `audio_metadata_json`
 - `recommended_voice`
 - `accent`
 - `speed`
@@ -124,6 +129,26 @@ Fields:
 - `learner_response`
 - `feedback_json`
 - `created_at`
+
+### speaking_attempts
+
+Stores optional speaking practice metadata and manual transcripts. Prompt 9
+does not persist audio; `audio_path` is reserved for a later explicitly
+approved storage workflow.
+
+Fields:
+
+- `id`
+- `lesson_pack_id`
+- `user_id INTEGER NOT NULL DEFAULT 1`
+- `prompt_type`
+- `prompt_ref`
+- `audio_path`
+- `transcript`
+- `stt_provider`
+- `stt_status`
+- `created_at`
+- `updated_at`
 
 ### writing_submissions
 
