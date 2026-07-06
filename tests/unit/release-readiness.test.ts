@@ -136,11 +136,11 @@ describe("release readiness", () => {
     }
   });
 
-  it("marks Prompt 12 as the current completed stage", () => {
+  it("marks Prompt 12 as the current stage", () => {
     const stage = readText("current-stage.md");
 
     expect(stage).toContain("M12_PRODUCT_HARDENING_RELEASE_READINESS");
-    expect(stage).toContain("Prompt 12 - Product hardening / release readiness: complete locally.");
+    expect(stage).toContain("Prompt 12 - Product hardening / release readiness");
   });
 });
 

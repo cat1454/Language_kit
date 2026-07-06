@@ -1,6 +1,6 @@
 # Local STT Prototype Spike
 
-Prompt 9.5 adds a disabled-by-default server-side boundary for evaluating a
+Prompt 9.5 adds a disabled by default server-side boundary for evaluating a
 future local speech-to-text command. It is a prototype spike, not production
 STT, and it is not connected to the learner UI or any API route.
 

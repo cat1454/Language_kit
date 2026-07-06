@@ -1,8 +1,8 @@
 # Language Kit
 
-Language Kit là Web MVP luyện ngoại ngữ theo chu trình **nghe trước, nói và viết sau**. Ứng dụng quản lý luồng học, kiểm tra dữ liệu AI, lưu lỗi, tạo bài luyện lại và xuất dữ liệu; AI chỉ cung cấp đầu ra JSON có cấu trúc thông qua quy trình manual relay.
+Language Kit là Web MVP luyện ngoại ngữ theo chu trình **nghe trước, nói và viết sau**. Ứng dụng quản lý luồng học, kiểm tra dữ liệu AI, lưu lỗi, tạo bài luyện lại và xuất dữ liệu; AI chỉ cung cấp đầu ra JSON có cấu trúc thông qua quy trình manual AI relay.
 
-> Trạng thái: prototype phục vụ phát triển và kiểm chứng luồng học cá nhân. Dự án chưa có xác thực người dùng, thanh toán, hội thoại giọng nói thời gian thực hoặc tích hợp AI trả phí bắt buộc.
+> Trạng thái: local single-user MVP phục vụ phát triển và kiểm chứng luồng học cá nhân, không phải bản production-ready. Dự án chưa có xác thực người dùng, cloud deployment, hội thoại giọng nói thời gian thực hoặc tích hợp AI provider bắt buộc.
 
 ## Luồng học cốt lõi
 
@@ -27,6 +27,8 @@ Chọn chủ đề và tình huống
 - Tạo repair prompt khi JSON sai định dạng hoặc thiếu trường bắt buộc.
 - Workspace luyện nghe, khai thác cụm từ, roleplay và viết theo cùng một tình huống.
 - Ghi nhận listening attempt, error log và retry drill.
+- Lưu manual speaking transcript nhưng không upload hoặc lưu speaking audio.
+- Tạo hàng đợi **Review next** theo quy tắc deterministic từ dữ liệu luyện tập.
 - Dashboard tiến độ cơ bản.
 - Xuất năm bộ dữ liệu JSONL cho lesson generation, feedback, phân loại lỗi, retry và JSON repair.
 - REST API dùng PostgreSQL và Drizzle ORM.
@@ -48,16 +50,28 @@ Chọn chủ đề và tình huống
 - Node.js 22 LTS
 - Corepack và pnpm 11
 - Docker Desktop có Docker Compose
+- PostgreSQL client tools (`pg_dump`, `pg_restore`) nếu cần kiểm chứng backup/restore
+
+### Environment setup / Thiết lập môi trường
+
+Sao chép cấu hình local mẫu; không ghi secret thật vào `.env.example`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+`DATABASE_URL` trỏ tới PostgreSQL local. Local STT prototype phải giữ
+`LANGUAGE_KIT_LOCAL_STT_ENABLED=0`; nó không nối với learner UI hay API.
 
 ### Chạy ứng dụng trên máy, database trong Docker
 
 ```powershell
 corepack enable
-pnpm install --frozen-lockfile
+corepack pnpm install --frozen-lockfile
 Copy-Item .env.example .env
-pnpm db:up
-pnpm db:migrate
-pnpm dev
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm dev
 ```
 
 Mở [http://localhost:3000](http://localhost:3000). API health check ở [http://localhost:3000/api/health](http://localhost:3000/api/health).
@@ -115,7 +129,12 @@ session kết nối mới. Lỗi request 4xx luôn được hiển thị và kh�
 | `pnpm test:unit` | Chạy unit tests |
 | `pnpm test:integration` | Chạy integration tests không yêu cầu DB thật |
 | `pnpm test:coverage` | Chạy test với ngưỡng coverage 80% |
+| `pnpm test:all` | Chạy `check` và coverage gate |
 | `pnpm test:e2e` | Chạy Playwright trên Chromium |
+| `pnpm eval:v0` | Chạy contract/export eval deterministic |
+| `pnpm dogfood:check` | Kiểm tra dogfood evidence và chạy eval v0 |
+| `pnpm model:readiness` | Kiểm tra manifest và model-readiness policy |
+| `pnpm release:check` | Kiểm tra release docs, scripts và safety boundary |
 | `pnpm db:up` | Khởi động PostgreSQL |
 | `pnpm db:generate` | Tạo migration từ schema |
 | `pnpm db:migrate` | Áp dụng migration |
@@ -124,21 +143,25 @@ session kết nối mới. Lỗi request 4xx luôn được hiển thị và kh�
 
 ## Kiểm thử
 
-Chạy bộ kiểm tra chính trước khi commit:
+Chạy bộ kiểm tra chính trước release:
 
 ```powershell
-pnpm typecheck
-pnpm test
-pnpm test:coverage
-pnpm build
+corepack pnpm check
+corepack pnpm test:coverage
+corepack pnpm test:all
+corepack pnpm build
+corepack pnpm eval:v0
+corepack pnpm dogfood:check
+corepack pnpm model:readiness
+corepack pnpm release:check
 ```
 
 E2E tự khởi động Next.js development server và cần PostgreSQL đang chạy:
 
 ```powershell
-pnpm db:up
-pnpm db:migrate
-pnpm test:e2e
+corepack pnpm db:up
+corepack pnpm db:migrate
+corepack pnpm test:e2e
 ```
 
 Kiểm thử repository với PostgreSQL thật là opt-in:
@@ -146,8 +169,22 @@ Kiểm thử repository với PostgreSQL thật là opt-in:
 ```powershell
 $env:RUN_DB_TESTS="1"
 $env:DATABASE_URL="postgres://language_kit:language_kit@localhost:54320/language_kit_dev"
-pnpm vitest run tests/integration/repository-postgres.test.ts
+corepack pnpm vitest run tests/integration/repository-postgres.test.ts
 ```
+
+## Backup and restore / Sao lưu và khôi phục
+
+Từ Git Bash hoặc WSL, export `DATABASE_URL` rồi chạy:
+
+```bash
+./scripts/backup-db.sh
+```
+
+Script yêu cầu `pg_dump` và tạo PostgreSQL custom-format dump trong `backups/`.
+Một backup chỉ được xem là đã kiểm chứng sau khi `pg_restore` thành công vào
+disposable database. Xem [`docs/backup-restore.md`](docs/backup-restore.md) và
+[`docs/operational-runbook.md`](docs/operational-runbook.md). Không commit backup
+chứa dữ liệu học thật.
 
 ## API chính
 
@@ -214,11 +251,34 @@ Hai tài liệu nền tảng của dự án là:
 - [`docs/research/listening-first-language-practice.md`](docs/research/listening-first-language-practice.md)
 - [`docs/research/budget-constrained-architecture.md`](docs/research/budget-constrained-architecture.md)
 
-## Giới hạn MVP
+Tài liệu release/operations:
+
+- [`docs/release-readiness.md`](docs/release-readiness.md)
+- [`docs/security-privacy-review.md`](docs/security-privacy-review.md)
+- [`docs/operational-runbook.md`](docs/operational-runbook.md)
+
+## Safety and privacy / An toàn và quyền riêng tư
+
+- `user_id = 1` chỉ là placeholder nội bộ, không phải authentication hoặc
+  multi-user isolation và không được trả trong learner-safe payload.
+- Full transcript nghe phải giữ ẩn cho tới khi learner hoàn thành listening checks.
+- Listening chỉ trả audio path đã có để phát bài; speaking audio không được upload,
+  persist, export hoặc trả qua API.
+- Raw AI output, learner text, exports, dogfood logs và database backup có thể
+  chứa dữ liệu cá nhân; giữ local và review trước khi chia sẻ.
+- AI output luôn là untrusted input cho tới khi Zod validation thành công.
+
+Xem audit đầy đủ tại
+[`docs/security-privacy-review.md`](docs/security-privacy-review.md).
+
+## Known limitations / Giới hạn đã biết
 
 - Không tự động điều khiển hoặc scrape các website AI miễn phí.
 - Chưa có authentication hay multi-user isolation.
-- Roleplay hiện là text; chưa có ASR, TTS hoặc chấm phát âm.
+- Không có production cloud deployment, monitoring, hosted backup hay CI/CD.
+- Roleplay hiện là text; speaking chỉ lưu manual transcript. Local STT prototype
+  bị tắt mặc định và không nối với learner UI/API.
 - Listening dùng heuristic so khớp từ khóa; đây chưa phải chấm ngữ nghĩa bằng AI.
 - Browser demo store là fallback tách biệt theo session và không đồng bộ ngược lên PostgreSQL.
-- Chưa có fine-tuning; JSONL chỉ chuẩn bị dữ liệu cho phân tích hoặc huấn luyện về sau.
+- Chưa có model serving, training hay fine-tuning; JSONL chỉ là candidate cần
+  privacy, source, license, leakage và human review.
