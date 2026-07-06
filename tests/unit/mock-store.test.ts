@@ -9,6 +9,7 @@ import {
   mockSaveListeningAttempt,
   mockSaveWritingFeedback
 } from "@/src/lib/mockStore";
+import { mockGetReviewQueue } from "@/src/lib/mock-review-store";
 
 const STORAGE_KEY = "language_kit_mock_db";
 
@@ -148,5 +149,34 @@ describe("browser demo store", () => {
 
     expect(mockGetLessons()).toHaveLength(2);
     expect(mockGetDashboardSummary().completedTopics).toBe(2);
+  });
+
+  it("derives a learner-safe review queue from demo data", () => {
+    const queue = mockGetReviewQueue(2);
+    const serialized = JSON.stringify(queue);
+
+    expect(queue.items).toHaveLength(2);
+    expect(queue.items[0]?.lessonId).toBe(101);
+    expect(serialized).not.toContain("userId");
+    expect(serialized).not.toContain("audioPath");
+  });
+
+  it("includes valid browser-only speaking transcripts and ignores malformed state", () => {
+    storage.setItem("language_kit_demo_speaking_attempts", JSON.stringify([{
+      lessonId: 101,
+      promptType: "roleplay",
+      promptRef: "Ask to move the meeting.",
+      transcript: "Could we reschedule?",
+      createdAt: "2026-07-06T12:00:00.000Z"
+    }]));
+
+    expect(mockGetReviewQueue(10).items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourceType: "speaking_attempt", lessonId: 101 })
+    ]));
+
+    storage.setItem("language_kit_demo_speaking_attempts", "{broken-json");
+    expect(mockGetReviewQueue(10).items.some(
+      (item) => item.sourceType === "speaking_attempt"
+    )).toBe(false);
   });
 });

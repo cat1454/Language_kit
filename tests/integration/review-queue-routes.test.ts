@@ -115,4 +115,31 @@ describe("GET /api/review-queue", () => {
     expect(response.status).toBe(400);
     expect(repositoryMocks.getReviewQueue).not.toHaveBeenCalled();
   });
+
+  it("rejects unknown or duplicate query parameters", async () => {
+    const { GET } = await import("@/app/api/review-queue/route");
+
+    const unknown = await GET(
+      new Request("http://localhost/api/review-queue?sort=recent")
+    );
+    const duplicate = await GET(
+      new Request("http://localhost/api/review-queue?limit=5&limit=10")
+    );
+
+    expect(unknown.status).toBe(400);
+    expect(duplicate.status).toBe(400);
+    expect(repositoryMocks.getReviewQueue).not.toHaveBeenCalled();
+  });
+
+  it("normalizes repository failures", async () => {
+    repositoryMocks.getReviewQueue.mockRejectedValueOnce(new Error("db offline"));
+    const { GET } = await import("@/app/api/review-queue/route");
+
+    const response = await GET(new Request("http://localhost/api/review-queue"));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to load review queue."
+    });
+  });
 });

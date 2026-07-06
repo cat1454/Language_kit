@@ -56,7 +56,7 @@ test("dashboard renders seeded review items with lesson links", async ({ page })
 
   await page.goto("/dashboard");
 
-  await expect(page.getByText("Urgent")).toBeVisible();
+  await expect(page.getByText("Urgent", { exact: true })).toBeVisible();
   await expect(page.getByText("Feedback created an unfinished retry drill.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Retry polite meeting request" })).toHaveAttribute("href", "/lessons/42");
 });

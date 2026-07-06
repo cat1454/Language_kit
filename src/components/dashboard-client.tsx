@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { DataSourceNotice } from "@/src/components/data-source-notice";
+import { ReviewNextPanel } from "@/src/components/review-next-panel";
 import { isBackendUnavailable, requestJson } from "@/src/lib/api-client";
 import {
   clearSessionDataSource,
@@ -12,7 +13,14 @@ import {
   type DashboardSummary,
   type DataSource
 } from "@/src/lib/lesson-data";
+import { mockGetReviewQueue } from "@/src/lib/mock-review-store";
 import { mockGetDashboardSummary } from "@/src/lib/mockStore";
+import type { ReviewQueue } from "@/src/lib/adaptive-review";
+
+const emptyReviewQueue: ReviewQueue = {
+  items: [],
+  summary: { total: 0, urgent: 0, high: 0, normal: 0, low: 0 }
+};
 
 export function DashboardClient() {
   const [summary, setSummary] = useState<DashboardSummary>({
@@ -20,9 +28,11 @@ export function DashboardClient() {
     completedRetryDrills: 0,
     repeatedErrorTypes: {}
   });
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueue>(emptyReviewQueue);
   const [source, setSource] = useState<DataSource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviewError, setReviewError] = useState("");
 
   useEffect(() => {
     void loadSummary();
@@ -31,9 +41,11 @@ export function DashboardClient() {
   async function loadSummary() {
     setLoading(true);
     setError("");
+    setReviewError("");
     const pinnedSource = getSessionDataSource();
     if (pinnedSource === "demo") {
       setSummary(mockGetDashboardSummary());
+      setReviewQueue(mockGetReviewQueue(5));
       setSource("demo");
       setLoading(false);
       return;
@@ -44,9 +56,16 @@ export function DashboardClient() {
       setSummary(response.summary);
       setSource("api");
       setSessionDataSource("api");
+      try {
+        setReviewQueue(await requestJson<ReviewQueue>("/api/review-queue?limit=5"));
+      } catch {
+        setReviewQueue(emptyReviewQueue);
+        setReviewError("Review queue is unavailable. Dashboard metrics are still loaded.");
+      }
     } catch (caught) {
       if (!pinnedSource && isBackendUnavailable(caught)) {
         setSummary(mockGetDashboardSummary());
+        setReviewQueue(mockGetReviewQueue(5));
         setSource("demo");
         setSessionDataSource("demo");
       } else {
@@ -166,7 +185,16 @@ export function DashboardClient() {
       </div> : null}
 
       {!loading && !error ? (
-        <div className="panel">
+        <ReviewNextPanel
+          items={reviewQueue.items}
+          summary={reviewQueue.summary}
+          loading={false}
+          error={reviewError}
+        />
+      ) : null}
+
+      {!loading && !error ? (
+        <div className="panel" style={{ marginTop: "28px" }}>
           <h2>Repeated error classifications</h2>
           {Object.entries(summary.repeatedErrorTypes).length === 0 ? (
             <p className="muted" style={{ padding: "20px 0" }}>No language errors recorded yet. Practice writing tasks to log feedback.</p>
