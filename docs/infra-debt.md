@@ -19,3 +19,8 @@ Do not create future `X.5` prompts for every small task. Use an `X.5` prompt onl
 - Adaptive review v2 research only when product evidence justifies spaced
   repetition, due dates, notifications, vector memory, or personalized
   scheduling.
+- Dataset privacy, secret, license, provenance, deduplication, and leakage
+  review before any export candidate can reach training review.
+- Production local-model work only in a separate approved prompt, including
+  model selection, hardware/runtime estimates, measured evals, serving and
+  rollback design, safety review, and a completed model card.

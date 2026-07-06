@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:all": "pnpm check && pnpm test:coverage",
     "eval:v0": "vitest run tests/unit/eval-set-v0.test.ts",
+    "model:readiness": "vitest run tests/unit/model-readiness.test.ts",
     "dogfood:new": "node scripts/dogfood-new.mjs",
     "dogfood:check": "node scripts/dogfood-check.mjs",
     "dogfood:assist": "node scripts/dogfood-assist.mjs",
